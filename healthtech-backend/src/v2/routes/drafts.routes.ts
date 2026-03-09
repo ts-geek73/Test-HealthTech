@@ -16,27 +16,27 @@ const upload = multer({
 
 router.post("/prepare-draft", (req, res) => controller.prepareDraft(req, res));
 
-router.get("/drafts/:patientId/:accountNumber", (req, res) =>
+router.get("/drafts/:sessionId", (req, res) =>
   controller.getDraft(req, res),
 );
 
-router.post("/drafts/:patientId/:accountNumber/commit", (req, res) =>
+router.post("/drafts/:sessionId/commit", (req, res) =>
   controller.commit(req, res),
 );
 
-router.post("/drafts/:patientId/:accountNumber/rollback", (req, res) =>
+router.post("/drafts/:sessionId/rollback", (req, res) =>
   controller.rollback(req, res),
 );
 
-router.post("/drafts/:patientId/:accountNumber/checkout", (req, res) =>
+router.post("/drafts/:sessionId/checkout", (req, res) =>
   controller.checkout(req, res),
 );
 
-router.get("/drafts/:patientId/:accountNumber/history", (req, res) =>
+router.get("/drafts/:sessionId/history", (req, res) =>
   controller.history(req, res),
 );
 
-router.get("/drafts/:patientId/:accountNumber/versions/:version", (req, res) =>
+router.get("/drafts/:sessionId/versions/:version", (req, res) =>
   controller.getVersionSnapshot(req, res),
 );
 
@@ -46,15 +46,15 @@ router.post("/voice-command", upload.single("audio"), (req, res) =>
   controller.processVoiceCommand(req, res),
 );
 
-router.post("/drafts/:patientId/:accountNumber/discard", (req, res) =>
+router.post("/drafts/:sessionId/discard", (req, res) =>
   controller.discard(req, res),
 );
 
-router.post("/drafts/:patientId/:accountNumber/save-inline", (req, res) =>
+router.post("/drafts/:sessionId/save-inline", (req, res) =>
   controller.saveInline(req, res),
 );
 
-router.post("/drafts/:patientId/:accountNumber/sign", (req, res) =>
+router.post("/drafts/:sessionId/sign", (req, res) =>
   controller.signDraft(req, res),
 );
 

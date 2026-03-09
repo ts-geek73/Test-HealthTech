@@ -21,16 +21,14 @@ export class DraftService {
   ) {}
 
   async prepareDraft(params: {
-    patientId: string;
-    accountNumber: string;
+    sessionId: string;
     createdBy: string;
     draft: Record<string, string>;
     sectionReferences?: Record<string, Reference[]>;
   }): Promise<DraftEntity> {
     try {
       const draft = await this.repository.findOrCreateDraft({
-        patientId: params.patientId,
-        accountNumber: params.accountNumber,
+        sessionId: params.sessionId,
         createdBy: params.createdBy,
       });
 
@@ -77,15 +75,13 @@ export class DraftService {
       draft.addOrUpdateReferences(uniqueRefs);
 
       logger.info("Draft prepared", {
-        patientId: params.patientId,
-        accountNumber: params.accountNumber,
+        sessionId: params.sessionId,
       });
 
       setImmediate(async () => {
         try {
           logger.info("Starting background embedding generation", {
-            patientId: params.patientId,
-            accountNumber: params.accountNumber,
+            sessionId: params.sessionId,
           });
 
           const embeddings = await this.embeddings.embedDocuments(
@@ -100,13 +96,11 @@ export class DraftService {
           ]);
 
           logger.info("Background tasks completed (embeddings)", {
-            patientId: params.patientId,
-            accountNumber: params.accountNumber,
+            sessionId: params.sessionId,
           });
         } catch (bgError) {
           logger.error("Error in background tasks", {
-            patientId: params.patientId,
-            accountNumber: params.accountNumber,
+            sessionId: params.sessionId,
             error: bgError,
           });
         }
@@ -115,8 +109,7 @@ export class DraftService {
       return draft;
     } catch (error) {
       logger.error("Error preparing draft", {
-        patientId: params.patientId,
-        accountNumber: params.accountNumber,
+        sessionId: params.sessionId,
         error,
       });
       throw error;
@@ -124,13 +117,11 @@ export class DraftService {
   }
 
   async getDraft(
-    patientId: string,
-    accountNumber: string,
+    sessionId: string,
   ): Promise<DraftEntity | null> {
     try {
       const draft = await this.repository.getDraftMeta(
-        patientId,
-        accountNumber,
+        sessionId,
       );
 
       if (!draft) return null;
@@ -152,20 +143,19 @@ export class DraftService {
 
       return draft;
     } catch (error) {
-      logger.error("Error getting draft", { patientId, accountNumber, error });
+      logger.error("Error getting draft", { sessionId, error });
       throw error;
     }
   }
 
   async updateSection(params: {
-    patientId: string;
-    accountNumber: string;
+    sessionId: string;
     sectionId: string;
     newContent: string;
     newReferences: Reference[];
   }): Promise<void> {
     try {
-      const draft = await this.getDraft(params.patientId, params.accountNumber);
+      const draft = await this.getDraft(params.sessionId);
 
       if (!draft) throw new Error("Draft not found");
 
@@ -199,8 +189,7 @@ export class DraftService {
       });
     } catch (error) {
       logger.error("Error updating section", {
-        patientId: params.patientId,
-        accountNumber: params.accountNumber,
+        sessionId: params.sessionId,
         sectionId: params.sectionId,
         error,
       });
@@ -209,14 +198,12 @@ export class DraftService {
   }
 
   async commitDraft(params: {
-    patientId: string;
-    accountNumber: string;
+    sessionId: string;
     createdBy: string;
   }): Promise<string> {
     try {
       const draft = await this.repository.getDraftMeta(
-        params.patientId,
-        params.accountNumber,
+        params.sessionId,
       );
 
       if (!draft) throw new Error("Draft not found");
@@ -249,16 +236,14 @@ export class DraftService {
       );
 
       logger.info("Draft committed", {
-        patientId: params.patientId,
-        accountNumber: params.accountNumber,
+        sessionId: params.sessionId,
         version: newVersion,
       });
 
       return `v${newVersion}`;
     } catch (error) {
       logger.error("Error committing draft", {
-        patientId: params.patientId,
-        accountNumber: params.accountNumber,
+        sessionId: params.sessionId,
         error,
       });
       throw error;
@@ -266,13 +251,11 @@ export class DraftService {
   }
 
   async discardDraft(params: {
-    patientId: string;
-    accountNumber: string;
+    sessionId: string;
   }): Promise<boolean> {
     try {
       const draft = await this.repository.getDraftMeta(
-        params.patientId,
-        params.accountNumber,
+        params.sessionId,
       );
 
       if (!draft) return false;
@@ -295,8 +278,7 @@ export class DraftService {
       return true;
     } catch (error) {
       logger.error("Error discarding draft", {
-        patientId: params.patientId,
-        accountNumber: params.accountNumber,
+        sessionId: params.sessionId,
         error,
       });
       throw error;
@@ -304,15 +286,13 @@ export class DraftService {
   }
 
   async rollback(params: {
-    patientId: string;
-    accountNumber: string;
+    sessionId: string;
     targetVersion: string;
     createdBy: string;
   }): Promise<boolean> {
     try {
       const draft = await this.repository.getDraftMeta(
-        params.patientId,
-        params.accountNumber,
+        params.sessionId,
       );
 
       if (!draft) return false;
@@ -362,8 +342,7 @@ export class DraftService {
       return true;
     } catch (error) {
       logger.error("Error rolling back draft", {
-        patientId: params.patientId,
-        accountNumber: params.accountNumber,
+        sessionId: params.sessionId,
         targetVersion: params.targetVersion,
         error,
       });
@@ -371,12 +350,10 @@ export class DraftService {
     }
   }
 
-  // Delegates to repository — no more raw pool.query in the service layer
-  async getHistory(patientId: string, accountNumber: string) {
+  async getHistory(sessionId: string) {
     try {
       const draft = await this.repository.getDraftMeta(
-        patientId,
-        accountNumber,
+        sessionId,
       );
 
       if (!draft) return null;
@@ -384,8 +361,7 @@ export class DraftService {
       return this.repository.getHistory(draft.id);
     } catch (error) {
       logger.error("Error getting history", {
-        patientId,
-        accountNumber,
+        sessionId,
         error,
       });
       throw error;
@@ -393,14 +369,13 @@ export class DraftService {
   }
 
   async search(params: {
-    patientId: string;
-    accountNumber: string;
+    sessionId: string;
     query: string;
     contentKeywords?: string[];
     limit?: number;
   }) {
     try {
-      const draft = await this.getDraft(params.patientId, params.accountNumber);
+      const draft = await this.getDraft(params.sessionId);
 
       if (!draft) throw new Error("Draft not found");
 
@@ -417,8 +392,7 @@ export class DraftService {
       );
     } catch (error) {
       logger.error("Error searching draft", {
-        patientId: params.patientId,
-        accountNumber: params.accountNumber,
+        sessionId: params.sessionId,
         query: params.query,
         error,
       });
@@ -427,14 +401,12 @@ export class DraftService {
   }
 
   async getSnapshotByVersion(params: {
-    patientId: string;
-    accountNumber: string;
+    sessionId: string;
     version: number;
   }) {
     try {
       const draft = await this.repository.getDraftMeta(
-        params.patientId,
-        params.accountNumber,
+        params.sessionId,
       );
 
       if (!draft) return null;
@@ -460,8 +432,7 @@ export class DraftService {
       };
     } catch (error) {
       logger.error("Error getting snapshot by version", {
-        patientId: params.patientId,
-        accountNumber: params.accountNumber,
+        sessionId: params.sessionId,
         version: params.version,
         error,
       });

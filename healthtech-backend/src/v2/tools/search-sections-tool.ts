@@ -10,15 +10,14 @@ export const searchSectionsTool = new DynamicStructuredTool({
     name: "search_sections",
     description: "Search for relevant sections in the medical document based on a query. Returns a list of candidate sections with their ID, title, content, and confidence score.",
     schema: z.object({
-        patientId: z.string(),
-        accountNumber: z.string(),
+        sessionId: z.string(),
         sectionId: z.string().describe("The ID of the section to fetch context for. This is provided in the agent context."),
     }),
-    func: async ({ patientId, accountNumber, sectionId }) => {
+    func: async ({ sessionId, sectionId }) => {
         try {
-            logger.info("search_sections tool: invoked", { patientId, accountNumber, sectionId });
+            logger.info("search_sections tool: invoked", { sessionId, sectionId });
 
-            const draft = await draftService.getDraft(patientId, accountNumber);
+            const draft = await draftService.getDraft(sessionId);
             if (!draft) {
                 return "Error: Draft not found.";
             }

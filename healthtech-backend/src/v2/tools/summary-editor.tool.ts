@@ -27,24 +27,21 @@ export const summaryEditorTool = new DynamicStructuredTool({
   schema: z.object({
     instruction: z.string(),
     userId: z.string(),
-    patientId: z.string(),
-    accountNumber: z.string(),
+    sessionId: z.string(),
     sectionId: z.string().optional(),
   }),
 
   func: async ({
     instruction,
     userId,
-    patientId,
-    accountNumber,
+    sessionId,
     sectionId
   }): Promise<string> => {
     try {
       logger.info("Summary editor invoked", {
         instruction,
         userId,
-        patientId,
-        accountNumber,
+        sessionId,
         sectionId
       });
 
@@ -87,7 +84,7 @@ export const summaryEditorTool = new DynamicStructuredTool({
         }
       };
 
-      const draft = await draftService.getDraft(patientId, accountNumber);
+      const draft = await draftService.getDraft(sessionId);
       if (!draft) {
         throw new Error("Draft not found");
       }
@@ -117,8 +114,7 @@ export const summaryEditorTool = new DynamicStructuredTool({
           const searchQuery = `${intent.target} ${intent.value}`.trim();
 
           const candidateSections = await draftService.search({
-            patientId,
-            accountNumber,
+            sessionId,
             query: searchQuery,
             limit: 5,
           });
@@ -180,8 +176,7 @@ export const summaryEditorTool = new DynamicStructuredTool({
 
           if (updated.trim() !== original.trim()) {
             await draftService.updateSection({
-              patientId,
-              accountNumber,
+              sessionId,
               sectionId: section.sectionId || section.id,
               newContent: updated,
               newReferences: [],

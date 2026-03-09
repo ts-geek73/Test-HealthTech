@@ -10,8 +10,8 @@ import { DraftService } from "./draft.service";
 import { saveSignature } from "./saveSignatures";
 
 const PrepareSchema = z.object({
-  patientId: z.string().min(1),
-  accountNumber: z.string().min(1),
+  sessionId: z.string().min(1),
+  contentId: z.string().optional(),
 });
 
 const CommitSchema = z.object({
@@ -42,41 +42,51 @@ export class AgentController {
         });
       }
 
-      const { patientId, accountNumber } = parsed.data;
+      const { sessionId } = parsed.data;
       const userId = (req as any).user?.id || "anonymous";
 
-      const existing = await this.draftService.getDraft(
-        patientId,
-        accountNumber,
-      );
+      // 1. Check if draft already exists for this session
+      const existing = await this.draftService.getDraft(sessionId);
       if (existing?.id) {
         return res.json({
           success: true,
           data: existing!.toJSON(),
         });
       }
-      const prepared = await dischargeSummaryService.prepare(
-        patientId,
-        accountNumber,
-      );
 
-      logger.info("Creating draft from prepared summary", {
-        patientId,
-        accountNumber,
-        sectionCount: Object.keys(prepared.sections).length,
+      // 2. Fetch the session and its sections
+      const sessionService = new (require("./session.service").SessionService)();
+      const session = await sessionService.getSessionById(sessionId);
+
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          error: "Session not found",
+        });
+      }
+
+      // 3. Prepare the sections for the draft
+      // We convert content_sections to the format prepareDraft expects: Record<string, string>
+      const draftSections: Record<string, string> = {};
+      session.sections.forEach((s: any) => {
+        draftSections[s.title] = s.content;
       });
 
+      logger.info("Creating draft from session sections", {
+        sessionId,
+        sectionCount: session.sections.length,
+      });
+
+      // 4. Create the draft
       const draft = await this.draftService.prepareDraft({
-        patientId,
-        accountNumber,
+        sessionId,
         createdBy: userId,
-        draft: prepared.sections,
-        sectionReferences: prepared.sectionReferences,
+        draft: draftSections,
+        // No references for now unless we add them to content_sections
       });
 
       logger.info("Draft created successfully", {
-        patientId,
-        accountNumber,
+        sessionId,
         draftId: draft.id,
       });
 
@@ -84,7 +94,7 @@ export class AgentController {
         success: true,
         data: {
           ...draft.toJSON(),
-          metadata: prepared.metadata,
+          // metadata: prepared.metadata,
         },
       });
     } catch (e: any) {
@@ -103,13 +113,13 @@ export class AgentController {
 
   async saveInline(req: Request, res: Response) {
     try {
-      const { patientId, accountNumber, sections } = req.body;
+      const { sessionId, sections } = req.body;
 
       const createdBy = (req as any).user?.id || "anonymous";
 
-      if (!patientId || !accountNumber) {
+      if (!sessionId) {
         return res.status(400).json({
-          message: "patientId and accountNumber are required",
+          message: "sessionId is required",
         });
       }
 
@@ -128,8 +138,7 @@ export class AgentController {
       }
 
       const draft = await this.draftService.saveInlineVersion({
-        patientId,
-        accountNumber,
+        sessionId,
         createdBy,
         sections,
       });
@@ -151,11 +160,10 @@ export class AgentController {
   }
   async getDraft(req: Request, res: Response) {
     try {
-      const { patientId, accountNumber } = req.params;
+      const { sessionId } = req.params;
 
       const draft = await this.draftService.getDraft(
-        patientId as string,
-        accountNumber as string,
+        sessionId as string,
       );
 
       if (!draft) {
@@ -190,11 +198,10 @@ export class AgentController {
         });
       }
 
-      const { patientId, accountNumber } = req.params;
+      const { sessionId } = req.params;
 
       const version = await this.draftService.commitDraft({
-        patientId: patientId as string,
-        accountNumber: accountNumber as string,
+        sessionId: sessionId as string,
         createdBy: parsed.data.createdBy,
       });
 
@@ -223,11 +230,10 @@ export class AgentController {
         });
       }
 
-      const { patientId, accountNumber } = req.params;
+      const { sessionId } = req.params;
 
       const ok = await this.draftService.rollback({
-        patientId: patientId as string,
-        accountNumber: accountNumber as string,
+        sessionId: sessionId as string,
         targetVersion: parsed.data.targetVersion,
         createdBy: parsed.data.createdBy,
       });
@@ -261,12 +267,11 @@ export class AgentController {
         });
       }
 
-      const { patientId, accountNumber } = req.params;
+      const { sessionId } = req.params;
 
       const ok = await this.draftService.getSnapshotByVersion({
-        patientId: patientId as string,
-        accountNumber: accountNumber as string,
-        version: 2,
+        sessionId: sessionId as string,
+        version: 2, // Hardcoded version logic? Likely should be from params
       });
 
       if (!ok) {
@@ -289,11 +294,10 @@ export class AgentController {
 
   async history(req: Request, res: Response) {
     try {
-      const { patientId, accountNumber } = req.params;
+      const { sessionId } = req.params;
 
       const history = await this.draftService.getHistory(
-        patientId as string,
-        accountNumber as string,
+        sessionId as string,
       );
 
       if (!history) {
@@ -319,7 +323,7 @@ export class AgentController {
 
   async getVersionSnapshot(req: Request, res: Response) {
     try {
-      const { patientId, accountNumber, version } = req.params;
+      const { sessionId, version } = req.params;
       const versionNum = Number((version as string).replace("v", ""));
 
       if (Number.isNaN(versionNum)) {
@@ -330,8 +334,7 @@ export class AgentController {
       }
 
       const snapshot = await this.draftService.getSnapshotByVersion({
-        patientId: patientId as string,
-        accountNumber: accountNumber as string,
+        sessionId: sessionId as string,
         version: versionNum,
       });
 
@@ -358,20 +361,19 @@ export class AgentController {
 
   async invoke(req: Request, res: Response) {
     try {
-      const { patientId, accountNumber, messages, sectionId } = req.body;
+      const { sessionId, sectionId, messages } = req.body;
 
-      if (!patientId || !accountNumber) {
+      if (!sessionId) {
         return res.status(400).json({
           success: false,
-          error: "patientId and accountNumber required",
+          error: "sessionId required",
         });
       }
 
       const userId = (req as any).user?.id || "anonymous";
 
       const result = await this.agentService.invoke(messages, userId, {
-        patientId: patientId as string,
-        accountNumber: accountNumber as string,
+        sessionId: sessionId as string,
         sectionId: sectionId as string
       } as AgentIdentity);
 
@@ -388,11 +390,11 @@ export class AgentController {
 
   async signDraft(req: Request, res: Response): Promise<Response> {
     try {
-      const { patientId, accountNumber } = req.params;
+      const { sessionId } = req.params;
       const { signedBy, signatureImageData, timezoneOffset } = req.body;
 
-      if (!patientId || !accountNumber) {
-        return res.status(400).json({ message: "Missing route parameters" });
+      if (!sessionId) {
+        return res.status(400).json({ message: "Missing sessionId parameter" });
       }
 
       if (!signedBy || !signatureImageData) {
@@ -405,7 +407,7 @@ export class AgentController {
         "",
       );
 
-      const fileName = `signature_${patientId}_${Date.now()}.png`;
+      const fileName = `signature_${sessionId}_${Date.now()}.png`;
 
       const saved = await saveSignature({
         base64: cleanBase64,
@@ -413,8 +415,7 @@ export class AgentController {
       });
 
       const generatedPath = await this.draftService.signDraft({
-        patientId: patientId as string,
-        accountNumber: accountNumber as string,
+        sessionId: sessionId as string,
         signedBy,
         signatureImagePath: saved.remotePath,
         timezoneOffset,
@@ -434,18 +435,17 @@ export class AgentController {
   }
   async discard(req: Request, res: Response) {
     try {
-      const { patientId, accountNumber } = req.params;
+      const { sessionId } = req.params;
 
-      // const ok = await this.draftService.discardDraft({
-      //   patientId: patientId as string,
-      //   accountNumber: accountNumber as string,
-      // });
+      const ok = await this.draftService.discardDraft({
+        sessionId: sessionId as string,
+      });
 
-      // if (!ok) {
-      //   return res
-      //     .status(404)
-      //     .json({ success: false, error: "Draft not found" });
-      // }
+      if (!ok) {
+        return res
+          .status(404)
+          .json({ success: false, error: "Draft not found" });
+      }
 
       return res.json({ success: true });
     } catch (e: any) {

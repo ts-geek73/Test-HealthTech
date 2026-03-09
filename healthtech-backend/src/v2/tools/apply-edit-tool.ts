@@ -13,17 +13,16 @@ export const applyEditTool = new DynamicStructuredTool({
     name: "apply_edit",
     description: "Applies a clinical edit to a specific section of the medical document. Requires the section ID, the action (add/update/delete/replace/change), and the instruction for the edit.",
     schema: z.object({
-        patientId: z.string(),
-        accountNumber: z.string(),
+        sessionId: z.string(),
         sectionId: z.string().describe("The UUID of the section to edit"),
         action: z.enum(["replace", "add", "delete", "update", "change"]).describe("The type of edit operation. Use 'update' if there are multiple types of changes for this section."),
         instruction: z.string().describe("The specific instruction or combined instructions for this section (e.g., 'Update pulse to 82 AND marked as stable in observation')"),
     }),
-    func: async ({ patientId, accountNumber, sectionId, action, instruction }) => {
+    func: async ({ sessionId, sectionId, action, instruction }) => {
         try {
             logger.info("apply_edit tool: invoked", { sectionId, action, instruction });
 
-            const draft = await draftService.getDraft(patientId, accountNumber);
+            const draft = await draftService.getDraft(sessionId);
             if (!draft) {
                 return "Error: Draft not found.";
             }
@@ -42,8 +41,7 @@ export const applyEditTool = new DynamicStructuredTool({
 
             if (updated.trim() !== original.trim()) {
                 await draftService.updateSection({
-                    patientId,
-                    accountNumber,
+                    sessionId,
                     sectionId,
                     newContent: updated,
                     newReferences: [],

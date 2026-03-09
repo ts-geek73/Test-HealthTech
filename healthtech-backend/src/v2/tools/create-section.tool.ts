@@ -25,25 +25,22 @@ export const createSectionTool = new DynamicStructuredTool({
   schema: z.object({
     instruction: z.string(),
     userId: z.string(),
-    patientId: z.string(),
-    accountNumber: z.string(),
+    sessionId: z.string(),
   }),
 
   func: async ({
     instruction,
     userId,
-    patientId,
-    accountNumber,
+    sessionId,
   }): Promise<string> => {
     try {
       logger.info("create_new_section: invoked", {
         instruction,
         userId,
-        patientId,
-        accountNumber,
+        sessionId,
       });
 
-      const draft = await draftService.getDraft(patientId, accountNumber);
+      const draft = await draftService.getDraft(sessionId);
 
       if (!draft) {
         const output: ToolOutput = {
@@ -130,7 +127,7 @@ Return ONLY valid JSON:
 
       await draftService["repository"].upsertSections(draft.id, [newSection]);
 
-      await draftService.getDraft(patientId, accountNumber);
+      await draftService.getDraft(sessionId);
 
       const output: ToolOutput = {
         message: `Successfully created new section "${newSection.title}".`,

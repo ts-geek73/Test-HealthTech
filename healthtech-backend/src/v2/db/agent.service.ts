@@ -23,14 +23,12 @@ import { healthcareTools } from "../tools";
 export const AgentState = Annotation.Root({
   ...MessagesAnnotation.spec,
   userId: Annotation<string>(),
-  patientId: Annotation<string>(),
-  accountNumber: Annotation<string>(),
+  sessionId: Annotation<string>(),
   sectionId: Annotation<string>(),
 });
 
 export interface AgentIdentity {
-  patientId: string;
-  accountNumber: string;
+  sessionId: string;
   sectionId: string;
 }
 
@@ -50,10 +48,9 @@ export class AgentService {
         const systemPrompt = [
           HEALTHCARE_SYSTEM_PROMPT,
           `CURRENT USER ID: ${state.userId}`,
-          `PATIENT ID: ${state.patientId}`,
-          `ACCOUNT NUMBER: ${state.accountNumber}`,
+          `SESSION ID: ${state.sessionId}`,
           `SECTION ID: ${state.sectionId}`,
-          `Use userId, patientId, and accountNumber for all tools.`,
+          `Use userId and sessionId for all tools.`,
           `If confidence is below ${LOW_CONFIDENCE_THRESHOLD}, ask for clarification.`,
         ].join("\n");
 
@@ -101,8 +98,7 @@ export class AgentService {
               const args = {
                 ...call.args,
                 userId: state.userId,
-                patientId: state.patientId,
-                accountNumber: state.accountNumber,
+                sessionId: state.sessionId,
                 sectionId: state.sectionId,
               };
 
@@ -216,8 +212,7 @@ export class AgentService {
     const result = await this.agent.invoke({
       messages: messages as any,
       userId,
-      patientId: identity.patientId,
-      accountNumber: identity.accountNumber,
+      sessionId: identity.sessionId,
       sectionId: identity.sectionId,
     });
 

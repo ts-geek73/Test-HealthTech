@@ -79,30 +79,20 @@ function rowsToSections(rows: any[]): SectionEntity[] {
 
 export class DraftRepository {
   async findOrCreateDraft(params: {
-    patientId: string; // MRN
-    accountNumber: string; // Encounter
+    sessionId: string;
     createdBy: string;
   }): Promise<DraftEntity> {
-    const patientUuid = await this.ensurePatient({
-      patientId: params.patientId,
-      accountNumber: params.accountNumber,
-    });
-
     const client = await pool.connect();
 
     try {
       await client.query("BEGIN");
 
       const existing = await client.query(
-        `SELECT 
-        d.*,
-        p.patient_id AS mrn,
-        p.account_number AS encounter
-       FROM drafts d
-       JOIN patients p ON p.id = d.patient_id
-       WHERE d.patient_id = $1
-       FOR UPDATE`,
-        [patientUuid],
+        `SELECT d.*
+         FROM drafts d
+         WHERE d.session_id = $1
+         FOR UPDATE`,
+        [params.sessionId],
       );
 
       if (existing.rows.length) {
@@ -117,37 +107,24 @@ export class DraftRepository {
       }
 
       const created = await client.query(
-        `INSERT INTO drafts (patient_id, created_by)
-       VALUES ($1, $2)
-       RETURNING *`,
-        [patientUuid, params.createdBy],
-      );
-
-      const withPatient = await client.query(
-        `SELECT 
-        d.*,
-        p.patient_id AS mrn,
-        p.account_number AS encounter
-       FROM drafts d
-       JOIN patients p ON p.id = d.patient_id
-       WHERE d.id = $1`,
-        [created.rows[0].id],
+        `INSERT INTO drafts (session_id, created_by)
+         VALUES ($1, $2)
+         RETURNING *`,
+        [params.sessionId, params.createdBy],
       );
 
       await client.query("COMMIT");
 
       logger.info("Draft created", {
-        patientId: params.patientId,
-        accountNumber: params.accountNumber,
-        draftId: withPatient.rows[0].id,
+        sessionId: params.sessionId,
+        draftId: created.rows[0].id,
       });
 
-      return this._rowToDraft(withPatient.rows[0]);
+      return this._rowToDraft(created.rows[0]);
     } catch (e) {
       await client.query("ROLLBACK");
       logger.error("Error finding or creating draft", {
-        patientId: params.patientId,
-        accountNumber: params.accountNumber,
+        sessionId: params.sessionId,
         error: e,
       });
       throw e;
@@ -156,22 +133,17 @@ export class DraftRepository {
     }
   }
 
-  async getDraftMeta(
-    patientId: string,
-    accountNumber: string,
-  ): Promise<DraftEntity | null> {
+  async getDraftMeta(sessionId: string): Promise<DraftEntity | null> {
     try {
       const { rows } = await pool.query(
-        `SELECT 
-        d.*,
-        p.patient_id AS mrn,
-        p.account_number AS encounter
-       FROM drafts d
-       JOIN patients p ON p.id = d.patient_id
-       WHERE p.patient_id = $1 
-         AND p.account_number = $2`,
-        [patientId, accountNumber],
+        `SELECT d.*
+         FROM drafts d
+         WHERE d.session_id = $1`,
+        [sessionId],
       );
+      
+      if (!rows.length) return null;
+      
       const signature = (await this.getSignature(rows[0]?.id)) ?? null;
 
       const rowsWithSignature = {
@@ -179,13 +151,11 @@ export class DraftRepository {
         signature: signature?.signature ?? null,
         signed_doc_path: signature?.signedDocPath ?? null,
       };
-      if (!rows.length) return null;
 
       return this._rowToDraft(rowsWithSignature);
     } catch (error) {
       logger.error("Error getting draft metadata", {
-        patientId,
-        accountNumber,
+        sessionId,
         error,
       });
       throw error;
@@ -694,8 +664,7 @@ export class DraftRepository {
   private _rowToDraft(row: any): DraftEntity {
     return new DraftEntity({
       id: row.id,
-      patientId: row.mrn,
-      accountNumber: row.encounter,
+      sessionId: row.session_id,
       createdBy: row.created_by,
       initialSections: [],
       currentVersion: row.current_version,
@@ -708,60 +677,7 @@ export class DraftRepository {
     });
   }
 
-  async ensurePatient(params: {
-    patientId: string; // MRN
-    accountNumber: string; // Encounter
-  }): Promise<string> {
-    const client = await pool.connect();
 
-    try {
-      await client.query("BEGIN");
-
-      const existing = await client.query(
-        `SELECT id FROM patients 
-       WHERE patient_id = $1 AND account_number = $2
-       FOR UPDATE`,
-        [params.patientId, params.accountNumber],
-      );
-
-      if (existing.rows.length) {
-        await client.query("COMMIT");
-        logger.info("Patient record found", {
-          patientId: params.patientId,
-          accountNumber: params.accountNumber,
-          uuid: existing.rows[0].id,
-        });
-        return existing.rows[0].id;
-      }
-
-      const created = await client.query(
-        `INSERT INTO patients (patient_id, account_number)
-       VALUES ($1, $2)
-       RETURNING id`,
-        [params.patientId, params.accountNumber],
-      );
-
-      await client.query("COMMIT");
-
-      logger.info("Patient record created", {
-        patientId: params.patientId,
-        accountNumber: params.accountNumber,
-        uuid: created.rows[0].id,
-      });
-
-      return created.rows[0].id;
-    } catch (e) {
-      await client.query("ROLLBACK");
-      logger.error("Error ensuring patient", {
-        patientId: params.patientId,
-        accountNumber: params.accountNumber,
-        error: e,
-      });
-      throw e;
-    } finally {
-      client.release();
-    }
-  }
 
   async trackEditorAction(params: {
     draftId: string;

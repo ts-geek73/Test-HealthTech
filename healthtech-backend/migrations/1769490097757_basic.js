@@ -6,13 +6,96 @@ export const shorthands = undefined;
 export const up = (pgm) => {
   pgm.sql(`CREATE EXTENSION IF NOT EXISTS vector`);
   pgm.sql(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
- 
+  pgm.createTable("content", {
+    id: {
+      type: "uuid",
+      primaryKey: true,
+      default: pgm.func("gen_random_uuid()"),
+    },
+    title: {
+      type: "varchar",
+      notNull: true,
+    },
+    description: {
+      type: "varchar",
+      notNull: true,
+    },
+    created_at: {
+      type: "timestamptz",
+      notNull: true,
+      default: pgm.func("NOW()"),
+    },
+    updated_at: {
+      type: "timestamptz",
+      notNull: true,
+      default: pgm.func("NOW()"),
+    },
+  });
+
+  pgm.createTable("content_sections", {
+    id: {
+      type: "uuid",
+      primaryKey: true,
+      default: pgm.func("gen_random_uuid()"),
+    },
+    content_id: {
+      type: "uuid",
+      notNull: true,
+      references: "content",
+      onDelete: "CASCADE",
+    },
+    position: {
+      type: "integer",
+      notNull: true,
+      default: 0,
+    },
+    title: {
+      type: "varchar",
+      notNull: true,
+    },
+    content: {
+      type: "text",
+      notNull: true,
+    },
+    embedding: {
+      type: "vector(1024)",
+    },
+    updated_at: {
+      type: "timestamptz",
+      notNull: true,
+      default: pgm.func("NOW()"),
+    },
+  });
+
+  pgm.createTable("sessions", {
+    id: {
+      type: "uuid",
+      primaryKey: true,
+      default: pgm.func("gen_random_uuid()"),
+    },
+    content_id: {
+      type: "uuid",
+      notNull: true,
+      references: "content",
+    },
+    created_at: {
+      type: "timestamptz",
+      notNull: true,
+      default: pgm.func("NOW()"),
+    },
+    updated_at: {
+      type: "timestamptz",
+      notNull: true,
+      default: pgm.func("NOW()"),
+    },
+  });
+
   pgm.createTable("patients", {
     id: {
       type: "uuid",
       primaryKey: true,
       default: pgm.func("gen_random_uuid()"),
-    }, 
+    },
     patient_id: {
       type: "varchar",
       notNull: true,
@@ -34,23 +117,22 @@ export const up = (pgm) => {
     },
   });
 
-  // One patient record per MRN + encounter
   pgm.addConstraint("patients", "patients_patient_account_unique", {
     unique: ["patient_id", "account_number"],
   });
   pgm.createIndex("patients", ["patient_id"]);
-  pgm.createIndex("patients", ["account_number"]); 
- 
+  pgm.createIndex("patients", ["account_number"]);
+
   pgm.createTable("drafts", {
     id: {
       type: "uuid",
       primaryKey: true,
       default: pgm.func("gen_random_uuid()"),
     },
-    patient_id: {
+    session_id: {
       type: "uuid",
       notNull: true,
-      references: "patients",
+      references: "sessions",
       onDelete: "CASCADE",
     },
     created_by: {
@@ -66,7 +148,7 @@ export const up = (pgm) => {
       type: "integer",
       notNull: true,
       default: 1,
-    }, 
+    },
     is_signed: {
       type: "boolean",
       notNull: true,
@@ -91,12 +173,12 @@ export const up = (pgm) => {
       default: pgm.func("NOW()"),
     },
   });
- 
-  pgm.addConstraint("drafts", "drafts_patient_unique", {
-    unique: ["patient_id"],
+
+  pgm.addConstraint("drafts", "drafts_session_id_unique", {
+    unique: ["session_id"],
   });
-  pgm.createIndex("drafts", ["patient_id"]);
- 
+  pgm.createIndex("drafts", ["session_id"]);
+
   pgm.createTable("sections", {
     id: {
       type: "uuid",
@@ -108,7 +190,7 @@ export const up = (pgm) => {
       notNull: true,
       references: "drafts",
       onDelete: "CASCADE",
-    }, 
+    },
     position: {
       type: "integer",
       notNull: true,
@@ -132,9 +214,9 @@ export const up = (pgm) => {
     },
   });
 
-  pgm.createIndex("sections", ["draft_id"]); 
+  pgm.createIndex("sections", ["draft_id"]);
   pgm.createIndex("sections", ["draft_id", "position"]);
- 
+
   pgm.createTable("draft_versions", {
     id: {
       type: "serial",
@@ -169,7 +251,7 @@ export const up = (pgm) => {
   pgm.addConstraint("draft_versions", "draft_versions_unique", {
     unique: ["draft_id", "version"],
   });
- 
+
   pgm.createTable("version_sections", {
     id: {
       type: "serial",
@@ -186,7 +268,7 @@ export const up = (pgm) => {
       notNull: true,
       references: "sections",
       onDelete: "CASCADE",
-    }, 
+    },
     position: {
       type: "integer",
       notNull: true,
@@ -211,7 +293,7 @@ export const up = (pgm) => {
     "version_sections_version_section_unique",
     { unique: ["version_id", "section_id"] },
   );
- 
+
   pgm.createTable("draft_references", {
     id: {
       type: "uuid",
@@ -252,7 +334,7 @@ export const up = (pgm) => {
     "draft_references_draft_reference_unique",
     { unique: ["draft_id", "reference_id"] },
   );
- 
+
   pgm.createTable("section_reference_map", {
     section_id: {
       type: "uuid",
@@ -272,7 +354,7 @@ export const up = (pgm) => {
   pgm.addConstraint("section_reference_map", "section_reference_map_pk", {
     primaryKey: ["section_id", "reference_id"],
   });
- 
+
   pgm.createTable("draft_editors", {
     id: {
       type: "uuid",
@@ -296,11 +378,11 @@ export const up = (pgm) => {
     action: {
       type: "varchar(20)",
       notNull: true,
-    }, 
+    },
     version_at_action: {
       type: "integer",
       default: null,
-    }, 
+    },
     metadata: {
       type: "jsonb",
       default: null,
@@ -316,7 +398,7 @@ export const up = (pgm) => {
   pgm.createIndex("draft_editors", ["user_id"]);
   pgm.createIndex("draft_editors", ["action"]);
   pgm.createIndex("draft_editors", ["created_at"]);
- 
+
   pgm.createTable("draft_signoffs", {
     id: {
       type: "uuid",
@@ -337,19 +419,19 @@ export const up = (pgm) => {
       type: "timestamptz",
       notNull: true,
       default: pgm.func("NOW()"),
-    }, 
+    },
     signature_image_path: {
       type: "text",
       notNull: true,
-    }, 
+    },
     signed_doc_path: {
       type: "text",
       default: null,
-    }, 
+    },
     signed_version: {
       type: "integer",
       notNull: true,
-    }, 
+    },
     timezone_offset: {
       type: "text",
       default: null,
@@ -379,7 +461,7 @@ export const up = (pgm) => {
   pgm.createIndex("draft_signoffs", ["draft_id"]);
   pgm.createIndex("draft_signoffs", ["signed_by"]);
   pgm.createIndex("draft_signoffs", ["signed_at"]);
- 
+
   pgm.sql(`
     CREATE INDEX sections_fts_idx
     ON sections
@@ -404,6 +486,9 @@ export const down = (pgm) => {
   pgm.dropTable("sections");
   pgm.dropTable("drafts");
   pgm.dropTable("patients");
+  pgm.dropTable("content");
+  pgm.dropTable("content_sections");
+  pgm.dropTable("sessions");
 
   pgm.sql(`DROP EXTENSION IF EXISTS vector`);
   pgm.sql(`DROP EXTENSION IF EXISTS pgcrypto`);

@@ -20,8 +20,7 @@ function getSignatureBase64(filePath: string) {
 
 export class DraftEntity {
   readonly id: string;
-  readonly patientId: string;
-  readonly accountNumber: string;
+  readonly sessionId: string;
   readonly createdBy: string;
 
   private _currentVersion: number;
@@ -37,8 +36,7 @@ export class DraftEntity {
 
   constructor(params: {
     id: string;
-    patientId: string;
-    accountNumber: string;
+    sessionId: string;
     createdBy: string;
     initialSections: SectionEntity[];
     references?: Reference[];
@@ -51,8 +49,7 @@ export class DraftEntity {
     signedDocPath?: string | null;
   }) {
     this.id = params.id;
-    this.patientId = params.patientId;
-    this.accountNumber = params.accountNumber;
+    this.sessionId = params.sessionId;
     this.createdBy = params.createdBy;
     this._signature = params.signature ?? null;
     this._sections = params.initialSections ?? [];
@@ -156,8 +153,7 @@ export class DraftEntity {
   toJSON() {
     return {
       id: this.id,
-      patientId: this.patientId,
-      accountNumber: this.accountNumber,
+      sessionId: this.sessionId,
       createdBy: this.createdBy,
       currentVersion: this._currentVersion,
       nextVersion: this._nextVersion,
@@ -178,8 +174,7 @@ export class DraftEntity {
 
     return new DraftEntity({
       id: data.id,
-      patientId: data.patientId,
-      accountNumber: data.accountNumber,
+      sessionId: data.sessionId,
       createdBy: data.createdBy,
       initialSections: sections,
       references: data.references ?? [],

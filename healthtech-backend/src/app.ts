@@ -3,6 +3,8 @@ import path from "path";
 import { installAuth, installCORS } from "./middleware";
 import { healthRouter } from "./routes";
 import router from "./v2/routes/drafts.routes";
+import sessionRoutes from "./v2/routes/session.routes";
+import contentRoutes from "./v2/routes/content.routes";
 import voiceToTextRoutes from "./voice-to-text/routes/voice-to-text.routes";
 
 const app = express();
@@ -18,6 +20,8 @@ app.use("/health", healthRouter);
 app.use("/api/v2/health", healthRouter);
 // app.use("/api/agent", agentRoutes);
 app.use("/api/v2", router);
+app.use("/api/v2/sessions", sessionRoutes);
+app.use("/api/v2/contents", contentRoutes);
 app.use("/api/v2/voice-to-text", voiceToTextRoutes);
 
 export default app;

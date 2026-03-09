@@ -44,6 +44,7 @@
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
+    "socket.io": "^4.8.3",
     "unified": "^11.0.5",
     "winston": "^3.19.0",
     "zod": "^3.25.76"
@@ -55,6 +56,7 @@
     "@types/html-to-docx": "^1.8.0",
     "@types/node": "^25.0.10",
     "@types/pg": "^8.16.0",
+    "@types/socket.io": "^3.0.1",
     "dotenv": "^17.2.3",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"

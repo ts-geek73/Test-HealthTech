@@ -109,8 +109,7 @@ ${content}
     const { draft } = params;
 
     console.log("[DOCX] Starting signed discharge summary generation", {
-      patientId: draft.patientId,
-      accountNumber: draft.accountNumber,
+      sessionId: draft.sessionId,
       draftVersion: draft.currentVersion,
     });
 
@@ -145,7 +144,7 @@ ${content}
       result instanceof Buffer ? result : Buffer.from(result as ArrayBuffer);
 
     console.log("[DOCX] DOCX buffer created", { sizeBytes: buffer.length });
-    const fileName = `${draft.patientId}_${draft.accountNumber}_signed_discharge_summary.docx`;
+    const fileName = `${draft.sessionId}_signed_discharge_summary.docx`;
     const localPath = path.join(FILESERVER_BASE, fileName);
 
     console.log("[DOCX] Writing to file server", { localPath });
