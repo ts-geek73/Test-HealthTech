@@ -2,7 +2,7 @@ import api from "@/lib/api";
 import type { Content, TrackedSession } from "@/types/session";
 import { useCallback, useEffect, useState } from "react";
 
-const MOCK_PATIENTS = [
+export const MOCK_PATIENTS = [
   {
     pid: "mrn2093",
     acc: "acc2093",
@@ -30,17 +30,13 @@ const MOCK_PATIENTS = [
 ];
 
 export const trackVisit = async (
-  pid: string,
+  contentId: string,
 ): Promise<TrackedSession | null> => {
   try {
-    const { data } = await api.post("/sessions/track", {
-      pid: pid,
-      status: "active",
+    const { data } = await api.post("/sessions", {
+      content_id: contentId,
     });
-    if (data.success) {
-      console.log("✅ Activity logged to sessions table");
-    }
-    return data?.data;
+    return data?.success ? data?.data : null;
   } catch (err) {
     console.error("❌ Error tracking session visit:", err);
     return null;
@@ -53,16 +49,16 @@ export const useContents = () => {
 
   const fetchContents = useCallback(async () => {
     setLoading(true);
-    setTimeout(() => {
-      const mockContents: Content[] = MOCK_PATIENTS.map((p) => ({
-        pid: p.pid,
-        acc: p.acc,
-        content: p.summary,
-        created_at: new Date().toISOString(),
-      }));
-      setContents(mockContents);
+    try {
+      const { data } = await api.get("/contents");
+      if (data.success) {
+        setContents(data.data);
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch contents:", err);
+    } finally {
       setLoading(false);
-    }, 300);
+    }
   }, []);
 
   useEffect(() => {

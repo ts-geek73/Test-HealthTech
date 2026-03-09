@@ -38,8 +38,8 @@ export const useBackendTranscription = (
       formData.append("autoProcess", "false");
 
       const baseUrl =
-        import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
-      const endpoint = `${baseUrl}/voice-command`;
+        import.meta.env?.VITE_API_BASE_URL || "http://localhost:5000";
+      const endpoint = `${baseUrl}/api/voice-command`;
 
       try {
         const response = await fetch(endpoint, {

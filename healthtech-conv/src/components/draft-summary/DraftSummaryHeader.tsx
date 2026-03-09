@@ -19,10 +19,10 @@ interface DraftSummaryHeaderProps extends VersionHistoryDropdownProps {
   onRefresh: () => void;
   onVoiceClick: () => void;
   onSave: () => void;
-  patientId: string | null;
-  accountNumber: string | null;
-  setPatientId: (id: string | null) => void;
-  setAccountNumber: (acc: string | null) => void;
+  contentId: string | null;
+  sessionId: string | null;
+  setContentId: (id: string | null) => void;
+  setSessionId: (acc: string | null) => void;
   isPreparing?: boolean;
   setShowInlineConfirm: React.Dispatch<React.SetStateAction<boolean>>;
   isContentLoading?: boolean;
@@ -50,10 +50,10 @@ const DraftSummaryHeader = ({
   openSignoff,
   setShowInlineConfirm,
   inlineDirty,
-  setAccountNumber,
-  setPatientId,
-  patientId,
-  accountNumber,
+  setSessionId,
+  setContentId,
+  contentId,
+  sessionId,
   ...props
 }: DraftSummaryHeaderProps) => {
   const [showRefs, setShowRefs] = useState(false);

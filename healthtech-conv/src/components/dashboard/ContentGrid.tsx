@@ -8,7 +8,7 @@ import { HiArrowRight } from "react-icons/hi2";
 interface ContentGridProps {
   contents: Content[];
   loading: boolean;
-  onClick: (pid: string) => void;
+  onClick: (id: string) => void;
 }
 
 const ContentGrid: React.FC<ContentGridProps> = ({
@@ -46,16 +46,16 @@ const ContentGrid: React.FC<ContentGridProps> = ({
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
       {contents.slice(0, 4).map((item) => (
         <Card
-          onClick={() => onClick(item?.pid)}
-          key={item.pid + item.acc}
-          id={`module-${item.pid + item.acc}`}
+          onClick={() => onClick(item?.id)}
+          key={item.id}
+          id={`module-${item.id}`}
           className="group h-44 border-zinc-100 rounded-2xl shadow-sm hover:shadow-xl hover:shadow-zinc-200/50 transition-all duration-500 bg-white overflow-hidden group-hover:border-black group-hover:translate-y-[-4px] cursor-pointer"
         >
           <CardHeader className="px-8 py-6 space-y-3">
             <div className="flex justify-between items-start">
               <div className="space-y-1">
                 <CardTitle className="text-xl font-bold group-hover:text-black transition-colors leading-tight">
-                  Patient <span className="uppercase">{item.pid}</span>
+                  <span className="uppercase">{item.title}</span>
                 </CardTitle>
               </div>
               <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#1A1A1A] text-white shadow-lg transition-transform group-hover:scale-110">
@@ -63,7 +63,7 @@ const ContentGrid: React.FC<ContentGridProps> = ({
               </div>
             </div>
             <p className="text-sm text-zinc-500 line-clamp-2 leading-relaxed font-medium">
-              {item?.content ||
+              {item?.description ||
                 "Operational documentation module for patient stay and treatment progress tracking."}
             </p>
           </CardHeader>

@@ -23,8 +23,8 @@ const DashboardPage: React.FC = () => {
 
   const totalLoading = contentsLoading || sessionsLoading;
 
-  const handleContentClick = async (pid: string) => {
-    const session = await trackVisit(pid);
+  const handleContentClick = async (contentId: string) => {
+    const session = await trackVisit(contentId);
     if (session?.id) {
       navigate(`/session/${session.id}`);
     }
@@ -32,7 +32,7 @@ const DashboardPage: React.FC = () => {
 
   const handleSessionClick = (sessionId: string) => {
     const session = sessions.find((s) => s.id === sessionId);
-    if (session && session.status === "active") {
+    if (session) { //add && session.status === "active"
       navigate(`/session/${session.id}`);
     }
   };

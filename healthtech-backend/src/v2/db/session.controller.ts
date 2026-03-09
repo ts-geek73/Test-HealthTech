@@ -1,6 +1,11 @@
 import { Request, Response } from "express";
 import { SessionService } from "./session.service";
 import logger from "../../logger";
+import {
+    emitSessionCreated,
+    emitSessionUpdated,
+    emitSessionDeleted,
+} from "../../socket";
 
 export class SessionController {
     private sessionService: SessionService;
@@ -56,14 +61,35 @@ export class SessionController {
             }
 
             const session = await this.sessionService.createSession(content_id);
-            
-            // Example of how we might emit a socket event here if we injected the io instance.
-            // For now, we will handle socket logic globally or inject it later.
+            emitSessionCreated(session);
 
             return res.json({ success: true, data: session });
         } catch (error: any) {
             logger.error("SessionController.createSession error", { error: error.message });
             return res.status(500).json({ success: false, error: "Failed to create session" });
+        }
+    }
+
+    /**
+     * Update a session
+     * PATCH /api/v2/sessions/:id
+     */
+    async updateSession(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const { status } = req.body;
+            
+            if (!status) {
+                return res.status(400).json({ success: false, error: "status is required" });
+            }
+
+            const session = await this.sessionService.updateSession(id as string, status);
+            emitSessionUpdated(session);
+
+            return res.json({ success: true, data: session });
+        } catch (error: any) {
+            logger.error("SessionController.updateSession error", { error: error.message });
+            return res.status(500).json({ success: false, error: "Failed to update session" });
         }
     }
 }

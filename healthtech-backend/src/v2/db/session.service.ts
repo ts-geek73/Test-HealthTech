@@ -9,14 +9,17 @@ export class SessionService {
     async getAllSessions(): Promise<Session[]> {
         try {
             const query = `
-                SELECT 
-                    id, 
-                    content_id, 
-                    created_at, 
-                    updated_at
-                FROM sessions
-                ORDER BY created_at DESC
-            `;
+            SELECT 
+                s.id,
+                s.content_id,
+                c.title AS content_title,
+                s.status,
+                s.created_at,
+                s.updated_at
+            FROM sessions s
+            JOIN content c ON c.id = s.content_id
+            ORDER BY s.created_at DESC
+        `;
             
             const result = await pool.query(query);
             return result.rows;
@@ -36,6 +39,7 @@ export class SessionService {
                 SELECT 
                     id, 
                     content_id, 
+                    status
                     created_at, 
                     updated_at
                 FROM sessions
@@ -80,15 +84,47 @@ export class SessionService {
     async createSession(contentId: string): Promise<Session> {
         try {
             const query = `
-                INSERT INTO sessions (content_id)
-                VALUES ($1)
-                RETURNING id, content_id, created_at, updated_at
+                WITH inserted AS (
+                    INSERT INTO sessions (content_id)
+                    VALUES ($1)
+                    RETURNING id, content_id, status, created_at, updated_at
+                )
+                SELECT 
+                    i.id,
+                    i.content_id,
+                    c.title AS content_title,
+                    i.status,
+                    i.created_at,
+                    i.updated_at
+                FROM inserted i
+                JOIN content c ON c.id = i.content_id
             `;
             
             const result = await pool.query(query, [contentId]);
             return result.rows[0];
         } catch (error) {
             logger.error("Error creating session", { error });
+            throw error;
+        }
+    }
+
+    /**
+     * Update a session
+     */
+    async updateSession(id: string, status: string): Promise<Session> {
+        try {
+            const query = `
+                UPDATE sessions
+                SET status = $2,
+                    updated_at = NOW()
+                WHERE id = $1
+                RETURNING id, content_id, status, created_at, updated_at
+            `;
+            
+            const result = await pool.query(query, [id, status]);
+            return result.rows[0];
+        } catch (error) {
+            logger.error(`Error updating session ${id}`, { error });
             throw error;
         }
     }

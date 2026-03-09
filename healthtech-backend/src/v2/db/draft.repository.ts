@@ -121,8 +121,26 @@ export class DraftRepository {
       });
 
       return this._rowToDraft(created.rows[0]);
-    } catch (e) {
+    } catch (e: any) {
       await client.query("ROLLBACK");
+      // If concurrent request already inserted the row, fetch and return it
+      if (e.code === '23505') {
+        const existing = await pool.query(
+          `SELECT d.*
+           FROM drafts d
+           WHERE d.session_id = $1`,
+          [params.sessionId],
+        );
+        if (existing.rows.length) {
+          const signature = await this.getSignature(existing.rows[0].id);
+          const rows = {
+            ...existing.rows[0],
+            signature: signature?.signature ?? null,
+            signed_doc_path: signature?.signedDocPath ?? null,
+          };
+          return this._rowToDraft(rows);
+        }
+      }
       logger.error("Error finding or creating draft", {
         sessionId: params.sessionId,
         error: e,

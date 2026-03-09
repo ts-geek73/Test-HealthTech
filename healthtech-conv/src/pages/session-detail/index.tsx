@@ -10,23 +10,18 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import DraftSummary from "../draft-summary";
 
-const PID_TO_ACC: Record<string, string> = {
-  mrn2093: "acc2093",
-  mrn2094: "acc2094",
-  mrn2095: "acc2095",
-  mrn2096: "acc2096",
-};
+
 
 const SessionDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { prepareDraft, patientId: currentPid } = useDraft();
+  const { prepareDraft, contentId: currentContentId } = useDraft();
   const { sessions, loading: sessionsLoading } = useSessionUpdates();
   const [session, setSession] = useState<TrackedSession | null>(null);
   const [loading, setLoading] = useState(true);
 
   const activeSessions = useMemo(
-    () => sessions.filter((s) => s.status === "active"),
+    () => sessions.filter((s) => s?.status ?? "active" === "active"),
     [sessions],
   );
 
@@ -37,11 +32,10 @@ const SessionDetailPage = () => {
       const { data } = await api.get(`/sessions/${id}`);
       if (data.success) {
         setSession(data.data);
-        const pid = data.data.pid;
-        const acc = PID_TO_ACC[pid] || "unknown";
+        const contentId = data.data.content_id;
 
-        if (currentPid !== pid) {
-          await prepareDraft(pid, acc);
+        if (currentContentId !== contentId) {
+          await prepareDraft(contentId, id);
         }
       }
     } catch (err) {

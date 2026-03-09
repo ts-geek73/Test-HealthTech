@@ -45,7 +45,7 @@ async function sectionsToHtml(sections: any[]): Promise<string> {
 
   const rendered = await Promise.all(
     sorted.map(async (s) => {
-      const body = await markdownToHtml(String(s.content || ""));
+      const body = await markdownToHtml(String(s.body || s.content || ""));
 
       const positionAttr = s.position
         ? ` data-section-position="${s.position}"`
@@ -117,10 +117,10 @@ export const useDraftSummary = () => {
     isAnyLoading,
     signoff,
     isSigned,
-    patientId,
-    accountNumber,
-    setPatientId,
-    setAccountNumber,
+    contentId,
+    sessionId,
+    setContentId,
+    setSessionId,
     openSignoff,
     setOpenSignoff,
     handleSignoffConfirm,
@@ -155,12 +155,11 @@ export const useDraftSummary = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        const key = `${patientId}-${accountNumber}`;
+        const key = `${sessionId}`;
         hasPrepared.current = key;
 
         setIsPreparing(true);
-
-        await prepareDraft(patientId || "", accountNumber || "");
+        await prepareDraft(contentId ?? "", sessionId ?? "");
       } catch {
         toast.error("Failed to prepare draft");
       } finally {
@@ -168,14 +167,14 @@ export const useDraftSummary = () => {
       }
     };
 
-    if (!patientId || !accountNumber) return;
+    if (!contentId || !sessionId) return;
 
-    const key = `${patientId}-${accountNumber}`;
+    const key = `${contentId}-${sessionId}`;
 
     if (hasPrepared.current !== key) {
       init();
     }
-  }, [patientId, accountNumber]);
+  }, [contentId, sessionId]);
 
   const activeSections = useMemo(
     () => previewSections ?? sections,
@@ -233,7 +232,7 @@ export const useDraftSummary = () => {
   const handleConfirmInlineSave = useCallback(async () => {
     try {
       const parsedSections = htmlToSections(content);
-      await saveInline(patientId || "", accountNumber || "", parsedSections);
+      await saveInline(contentId || "", sessionId || "", parsedSections);
       setShowInlineConfirm(false);
       setInlineDirty(false);
       currentHtmlRef.current = content;
@@ -341,9 +340,9 @@ export const useDraftSummary = () => {
     openSignoff,
     setOpenSignoff,
     handleSignoffConfirm,
-    patientId,
-    accountNumber,
-    setPatientId,
-    setAccountNumber,
+    contentId,
+    sessionId,
+    setContentId,
+    setSessionId,
   };
 };

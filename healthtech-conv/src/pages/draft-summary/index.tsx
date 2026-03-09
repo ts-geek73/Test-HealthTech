@@ -49,7 +49,6 @@ interface DraftSummaryProps {
 }
 
 const DraftSummary = ({
-  session,
   onNextSession,
   hasNext,
 }: DraftSummaryProps) => {
@@ -96,10 +95,10 @@ const DraftSummary = ({
     openSignoff,
     setOpenSignoff,
     handleSignoffConfirm,
-    patientId,
-    accountNumber,
-    setPatientId,
-    setAccountNumber,
+    contentId,
+    sessionId,
+    setContentId,
+    setSessionId,
   } = useDraftSummary();
 
   const isContentLoading =
@@ -121,10 +120,10 @@ const DraftSummary = ({
           }
           setShowVoice(true);
         }}
-        patientId={patientId}
-        accountNumber={accountNumber}
-        setPatientId={setPatientId}
-        setAccountNumber={setAccountNumber}
+        contentId={contentId}
+        sessionId={sessionId}
+        setContentId={setContentId}
+        setSessionId={setSessionId}
         onSave={handleSave}
         signoff={signoff}
         isPreparing={isPreparing}

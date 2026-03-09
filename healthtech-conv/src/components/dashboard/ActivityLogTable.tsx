@@ -1,12 +1,12 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import React, { useState } from "react";
+import React from "react";
 import { MdModeEdit } from "react-icons/md";
 import { Button } from "../ui/button";
 
-import StatusSelector from "./StatusSelector";
 import type { TrackedSession } from "@/types/session";
+import StatusSelector from "./StatusSelector";
 
 interface ActivityLogTableProps {
   sessions: TrackedSession[];
@@ -38,16 +38,13 @@ const ActivityLogTable: React.FC<ActivityLogTableProps> = ({
   newSessionIds = new Set(),
   onSessionClick,
 }) => {
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
-
   const handleStatusChange = async (sessionId: string, newStatus: string) => {
     if (!onStatusUpdate) return;
-    if (newStatus !== "active" && newStatus !== "complete") return;
-    setUpdatingId(sessionId);
+    // if (newStatus !== "active" && newStatus !== "complete") return;
     try {
       await onStatusUpdate(sessionId, newStatus as "active" | "complete");
-    } finally {
-      setUpdatingId(null);
+    } catch (error) {
+      console.error("Failed to update session status:", error);
     }
   };
 
@@ -88,7 +85,7 @@ const ActivityLogTable: React.FC<ActivityLogTableProps> = ({
                           : "",
                       )}
                     >
-                      {session.pid}
+                      {session?.content_title ?? "Unknown"}
                     </button>
                   </div>
                   <Button
@@ -106,8 +103,9 @@ const ActivityLogTable: React.FC<ActivityLogTableProps> = ({
                     </span>
                     <div className="scale-95 origin-left">
                       <StatusSelector
-                        currentStatus={session.status}
-                        isUpdating={updatingId === session.id}
+                        currentStatus={session?.status ?? "active"}
+                        // isUpdating={updatingId === session.id}
+                        isUpdating={false}
                         onUpdate={(newStatus) =>
                           handleStatusChange(session.id, newStatus)
                         }
@@ -171,7 +169,8 @@ const ActivityLogTable: React.FC<ActivityLogTableProps> = ({
             </tr>
           ) : (
             sessions.map((session, index) => {
-              const isActive = session.status === "active";
+              // To Do: change status later
+              const isActive = session?.status ?? "active" === "active";
               return (
                 <tr
                   key={session.id + index}
@@ -191,13 +190,14 @@ const ActivityLogTable: React.FC<ActivityLogTableProps> = ({
                           : "",
                       )}
                     >
-                      {session.pid}
+                      {session?.content_title ?? "Unknown"}
                     </button>
                   </td>
                   <td className="p-0! align-middle">
                     <StatusSelector
-                      currentStatus={session.status}
-                      isUpdating={updatingId === session.id}
+                      currentStatus={session?.status ?? "active"}
+                      // isUpdating={updatingId === session.id}
+                      isUpdating={false}
                       onUpdate={(newStatus) =>
                         handleStatusChange(session.id, newStatus)
                       }

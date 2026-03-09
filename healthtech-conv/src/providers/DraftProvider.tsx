@@ -1,3 +1,4 @@
+import api from "@/lib/api";
 import React, {
   createContext,
   useCallback,
@@ -6,12 +7,6 @@ import React, {
   useState,
 } from "react";
 import { toast } from "sonner";
-import {
-  mockPrepareDraft,
-  mockGetDraft,
-  mockGetHistory,
-  mockGetVersionSnapshot,
-} from "@/mock-data";
 
 export interface PatchResult {
   title: string;
@@ -64,8 +59,8 @@ export interface SignoffData {
 }
 
 interface DraftContextValue {
-  patientId: string | null;
-  accountNumber: string | null;
+  contentId: string | null;
+  sessionId: string | null;
 
   sections: any[];
   references: Reference[];
@@ -89,35 +84,28 @@ interface DraftContextValue {
   openSignoff: boolean;
   setOpenSignoff: (open: boolean) => void;
   handleSignoffConfirm: (signatureDataUrl: string) => void;
-  setPatientId: (patientId: string | null) => void;
-  setAccountNumber: (accountNumber: string | null) => void;
-  prepareDraft: (patientId: string, accountNumber: string) => Promise<void>;
+  setContentId: (contentId: string | null) => void;
+  setSessionId: (sessionId: string | null) => void;
+  prepareDraft: (contentId: string, sessionId: string) => Promise<void>;
   invokeAgent: (messages: any[], sectionId?: string | null) => Promise<void>;
   discardDraft: () => Promise<void>;
   commitDraft: (createdBy: string) => Promise<void>;
   rollback: (version: string) => Promise<void>;
   getVersionSnapshot: (version: string) => Promise<VersionSnapshot | null>;
   saveInline: (
-    patientId: string,
-    accountNumber: string,
+    contentId: string,
+    sessionId: string,
     sections: InlineSection[],
   ) => Promise<void>;
 }
 
 const DraftContext = createContext<DraftContextValue | null>(null);
 
-// ── ORIGINAL API CONFIG (commented out – using mock data) ──────────────
-// const BASE_URL =
-//   import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api/v2";
-//
-// const JSON_HEADERS = { "Content-Type": "application/json" };
-// ───────────────────────────────────────────────────────────────────────
-
 export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [patientId, setPatientId] = useState<string | null>("mrn2096");
-  const [accountNumber, setAccountNumber] = useState<string | null>("acc2096");
+  const [contentId, setContentId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [sections, setSections] = useState<any[]>([]);
   const [references, setReferences] = useState<Reference[]>([]);
   const [currentVersion, setCurrentVersion] = useState<string | null>(null);
@@ -127,8 +115,7 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const [isPreparing, setIsPreparing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isInvoking, ] = useState(false);
-  // const [isInvoking, setIsInvoking] = useState(false); Enable On API Call
+  const [isInvoking, setIsInvoking] = useState(false);
 
   const [isDiscarding, setIsDiscarding] = useState(false);
   const [isRollingBack, setIsRollingBack] = useState(false);
@@ -188,76 +175,56 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
   // );
   // ─────────────────────────────────────────────────────────────────────
 
-  /** MOCK version of loadAllData */
-  const loadAllData = useCallback(async (pid: string, acc: string) => {
-    const draftRes = mockGetDraft(pid, acc);
-    const historyRes = mockGetHistory(pid, acc);
-
-    const draft = draftRes.data;
-
-    setSections(draft.sections ?? []);
-    setReferences(draft.references ?? []);
-    setCurrentVersion(draft.currentVersion);
-    setDirty(false);
-    setHistory(historyRes.data ?? []);
-
-    if (draft?.isSigned) {
-      setSignoff({
-        signedBy: draft.signedBy,
-        signatureDataUrl: draft.signature,
-        signedAt: draft.signedAt,
-        isSigned: draft.isSigned,
-      });
-    } else {
-      setSignoff(null);
-    }
-  }, []);
+  const loadAllData = useCallback(
+    async (sessionId: string) => {
+      try {
+        const [draftRes, historyRes] = await Promise.all([
+          api.get(`/drafts/${sessionId}`),
+          api.get(`/drafts/${sessionId}/history`),
+        ]);
+        const draft = draftRes.data.data;
+        setSections(draft.sections ?? []);
+        setReferences(draft.references ?? []);
+        setCurrentVersion(draft.currentVersion);
+        setDirty(false);
+        setHistory(historyRes.data.data ?? []);
+        if (draft?.isSigned) {
+          setSignoff({
+            signedBy: draft.signedBy,
+            signatureDataUrl: draft.signature,
+            signedAt: draft.signedAt,
+            isSigned: draft.isSigned,
+          });
+        } else {
+          setSignoff(null);
+        }
+      } catch (err) {
+        console.error("Failed to load session data", err);
+      }
+    },
+    [],
+  );
 
   const refresh = useCallback(async () => {
-    if (!patientId || !accountNumber) return;
-    await loadAllData(patientId, accountNumber);
-  }, [patientId, accountNumber, loadAllData]);
+    if (!contentId || !sessionId) return;
+    await loadAllData(sessionId);
+  }, [contentId, sessionId, loadAllData]);
 
-  // ── ORIGINAL prepareDraft (commented out – using mock data) ───────────
-  // const prepareDraft = useCallback(
-  //   async (pid: string, acc: string) => {
-  //     try {
-  //       setIsPreparing(true);
-  //       await api("/prepare-draft", {
-  //         method: "POST",
-  //         headers: JSON_HEADERS,
-  //         body: JSON.stringify({ patientId: pid, accountNumber: acc }),
-  //       });
-  //       setPatientId(pid);
-  //       setAccountNumber(acc);
-  //       await loadAllData(pid, acc);
-  //       toast.success("Draft ready");
-  //     } catch (err: any) {
-  //       toast.error(err?.message || "Server is waking up. Please try again.");
-  //     } finally {
-  //       setIsPreparing(false);
-  //     }
-  //   },
-  //   [api],
-  // );
-  // ─────────────────────────────────────────────────────────────────────
-
-  /** MOCK version of prepareDraft */
   const prepareDraft = useCallback(
-    async (pid: string, acc: string) => {
+    async (contentId: string, sessionId: string) => {
       try {
         setIsPreparing(true);
 
-        // validate that mock data exists for this patient
-        mockPrepareDraft(pid, acc);
-
-        setPatientId(pid);
-        setAccountNumber(acc);
-
-        await loadAllData(pid, acc);
-        toast.success("Draft ready (mock data)");
+        await api.post("/prepare-draft", {
+          contentId,
+          sessionId,
+        });
+        setContentId(contentId);
+        setSessionId(sessionId);
+        
+        await loadAllData(sessionId);
       } catch (err: any) {
-        toast.error(err?.message || "No mock data for this patient.");
+        toast.error(err?.message || "Failed to prepare draft.");
       } finally {
         setIsPreparing(false);
       }
@@ -265,262 +232,138 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
     [loadAllData],
   );
 
-  // ── ORIGINAL invokeAgent (commented out – using mock data) ────────────
-  // const invokeAgent = useCallback(
-  //   async (messages: any[], sectionId?: string | null) => {
-  //     if (!patientId || !accountNumber) return;
-  //     try {
-  //       setIsInvoking(true);
-  //       const res = await api("/invoke", {
-  //         method: "POST",
-  //         headers: JSON_HEADERS,
-  //         body: JSON.stringify({
-  //           patientId, accountNumber, messages,
-  //           sectionId: sectionId ?? undefined,
-  //         }),
-  //       });
-  //       const result: AgentResult = res.data;
-  //       setLastEdits(result);
-  //       setDirty(result.dirty);
-  //       if (result.needsClarification)
-  //         toast.warning(result.message ?? "Clarify");
-  //     } catch (err: any) {
-  //       toast.error(err?.message || "Failed to invoke AI");
-  //     } finally {
-  //       setIsInvoking(false);
-  //     }
-  //   },
-  //   [api, patientId, accountNumber],
-  // );
-  // ─────────────────────────────────────────────────────────────────────
-
-  /** MOCK version – AI invoke is a no-op with mock data */
   const invokeAgent = useCallback(
-    async (_messages: any[], _sectionId?: string | null) => {
-      if (!patientId || !accountNumber) return;
-      toast.info("AI invoke is disabled while using mock data.");
+    async (messages: any[], sectionId?: string | null) => {
+      if (!sessionId) return;
+      try {
+        setIsInvoking(true);
+        const res = await api.post("/invoke", {
+          sessionId,
+          messages,
+          sectionId: sectionId ?? undefined,
+        });
+        const result: AgentResult = res.data;
+        setLastEdits(result);
+        setDirty(result.dirty);
+        if (result.needsClarification)
+          toast.warning(result.message ?? "Clarify");
+      } catch (err: any) {
+        toast.error(err?.message || "Failed to invoke AI");
+      } finally {
+        setIsInvoking(false);
+      }
     },
-    [patientId, accountNumber],
+    [sessionId],
   );
 
-  // ── ORIGINAL commitDraft (commented out – using mock data) ────────────
-  // const commitDraft = useCallback(
-  //   async (createdBy: string) => {
-  //     if (!patientId || !accountNumber) return;
-  //     try {
-  //       setIsSaving(true);
-  //       const res = await api(`/drafts/${patientId}/${accountNumber}/commit`, {
-  //         method: "POST",
-  //         headers: JSON_HEADERS,
-  //         body: JSON.stringify({ createdBy }),
-  //       });
-  //       setCurrentVersion(res.data.version);
-  //       setDirty(false);
-  //       setLastEdits(null);
-  //       await refresh();
-  //       toast.success("Changes applied.");
-  //     } catch (err: any) {
-  //       toast.error(err?.message || "Commit failed");
-  //     } finally {
-  //       setIsSaving(false);
-  //     }
-  //   },
-  //   [api, patientId, accountNumber, refresh],
-  // );
-  // ─────────────────────────────────────────────────────────────────────
-
-  /** MOCK version of commitDraft */
   const commitDraft = useCallback(
-    async (_createdBy: string) => {
-      if (!patientId || !accountNumber) return;
+    async (createdBy: string) => {
+      if (!sessionId) return;
       try {
         setIsSaving(true);
+        const res = await api.post(`/drafts/${sessionId}/commit`, {
+          createdBy,
+        });
+        setCurrentVersion(res.data.version);
         setDirty(false);
         setLastEdits(null);
-        toast.success("Changes applied (mock).");
+        await refresh();
+        toast.success("Changes applied.");
+      } catch (err: any) {
+        toast.error(err?.message || "Commit failed");
       } finally {
         setIsSaving(false);
       }
     },
-    [patientId, accountNumber],
+    [sessionId, refresh],
   );
 
   const discardDraft = useCallback(async () => {
-    if (!patientId || !accountNumber) return;
+    if (!sessionId) return;
 
     try {
       setIsDiscarding(true);
+      await api.post(`/drafts/${sessionId}/discard`, {});
       setDirty(false);
       setLastEdits(null);
 
       await refresh();
-      toast.info("No changes made");
+      toast.info("Changes discarded");
     } catch (err: any) {
       toast.error(err?.message || "Discard failed");
     } finally {
       setIsDiscarding(false);
     }
-  }, [patientId, accountNumber, refresh]);
+  }, [sessionId, refresh]);
 
-  // ── ORIGINAL rollback (commented out – using mock data) ───────────────
-  // const rollback = useCallback(
-  //   async (version: string) => {
-  //     if (!patientId || !accountNumber) return;
-  //     try {
-  //       setIsRollingBack(true);
-  //       await api(`/drafts/${patientId}/${accountNumber}/rollback`, {
-  //         method: "POST",
-  //         headers: JSON_HEADERS,
-  //         body: JSON.stringify({ targetVersion: version, createdBy: "anonymous" }),
-  //       });
-  //       await refresh();
-  //       toast.success(`Draft rolled back to ${version}`);
-  //     } catch (err: any) {
-  //       toast.error(err?.message || "Rollback failed");
-  //     } finally {
-  //       setIsRollingBack(false);
-  //     }
-  //   },
-  //   [api, patientId, accountNumber, refresh],
-  // );
-  // ─────────────────────────────────────────────────────────────────────
-
-  /** MOCK version of rollback */
   const rollback = useCallback(
     async (version: string) => {
-      if (!patientId || !accountNumber) return;
+      if (!sessionId) return;
       try {
         setIsRollingBack(true);
-        await loadAllData(patientId, accountNumber);
-        toast.success(`Draft rolled back to ${version} (mock)`);
+        await api.post(`/drafts/${sessionId}/rollback`, {
+          targetVersion: version,
+          createdBy: "anonymous",
+        });
+        await refresh();
+        toast.success(`Draft rolled back to ${version}`);
       } catch (err: any) {
         toast.error(err?.message || "Rollback failed");
       } finally {
         setIsRollingBack(false);
       }
     },
-    [patientId, accountNumber, loadAllData],
+    [sessionId, refresh],
   );
 
-  // ── ORIGINAL handleSignoffConfirm (commented out – using mock data) ──
-  // const handleSignoffConfirm = useCallback(
-  //   async (signatureDataUrl: string) => {
-  //     if (!patientId || !accountNumber) return;
-  //     try {
-  //       setIsSaving(true);
-  //       const timezoneOffset = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  //       await api(`/drafts/${patientId}/${accountNumber}/sign`, {
-  //         method: "POST",
-  //         headers: JSON_HEADERS,
-  //         body: JSON.stringify({
-  //           signedBy: "anonymous",
-  //           signatureImageData: signatureDataUrl,
-  //           timezoneOffset,
-  //         }),
-  //       });
-  //       setOpenSignoff(false);
-  //       await refresh();
-  //       toast.success("Document signed and locked");
-  //     } catch (err: any) {
-  //       toast.error(err?.message || "Signing failed");
-  //     } finally {
-  //       setIsSaving(false);
-  //     }
-  //   },
-  //   [api, patientId, accountNumber, refresh],
-  // );
-  // ─────────────────────────────────────────────────────────────────────
-
-  /** MOCK version of handleSignoffConfirm */
   const handleSignoffConfirm = useCallback(
     async (signatureDataUrl: string) => {
-      if (!patientId || !accountNumber) return;
+      if (!sessionId) return;
       try {
         setIsSaving(true);
-        setSignoff({
+        const timezoneOffset = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        await api.post(`/drafts/${sessionId}/sign`, {
           signedBy: "anonymous",
-          signatureDataUrl,
-          signedAt: new Date().toISOString(),
-          isSigned: true,
+          signatureImageData: signatureDataUrl,
+          timezoneOffset,
         });
         setOpenSignoff(false);
-        toast.success("Document signed and locked (mock)");
+        await refresh();
+        toast.success("Document signed and locked");
       } catch (err: any) {
         toast.error(err?.message || "Signing failed");
       } finally {
         setIsSaving(false);
       }
     },
-    [patientId, accountNumber],
+    [sessionId, refresh],
   );
 
-  // ── ORIGINAL saveInline (commented out – using mock data) ─────────────
-  // const saveInline = useCallback(
-  //   async (pid: string, acc: string, inlineSections: InlineSection[]) => {
-  //     try {
-  //       setIsInlineSaving(true);
-  //       await api(`/drafts/${pid}/${acc}/save-inline`, {
-  //         method: "POST",
-  //         headers: JSON_HEADERS,
-  //         body: JSON.stringify({ patientId: pid, accountNumber: acc, sections: inlineSections }),
-  //       });
-  //       await loadAllData(pid, acc);
-  //       toast.success("Version saved");
-  //     } catch (err: any) {
-  //       toast.error(err?.message || "Inline save failed");
-  //     } finally {
-  //       setIsInlineSaving(false);
-  //     }
-  //   },
-  //   [api, loadAllData],
-  // );
-  // ─────────────────────────────────────────────────────────────────────
-
-  /** MOCK version of saveInline */
   const saveInline = useCallback(
-    async (_pid: string, _acc: string, inlineSections: InlineSection[]) => {
+    async (_contentId: string, sessionId: string, inlineSections: InlineSection[]) => {
       try {
         setIsInlineSaving(true);
-        // In mock mode, just update local sections state
-        setSections(inlineSections);
-        toast.success("Version saved (mock)");
+        await api.post(`/drafts/${sessionId}/save-inline`, {
+          sessionId,
+          sections: inlineSections,
+        });
+        await loadAllData(sessionId);
+        toast.success("Version saved");
       } catch (err: any) {
         toast.error(err?.message || "Inline save failed");
       } finally {
         setIsInlineSaving(false);
       }
     },
-    [],
+    [loadAllData],
   );
 
-  // ── ORIGINAL getVersionSnapshot (commented out – using mock data) ────
-  // const getVersionSnapshot = useCallback(
-  //   async (version: string) => {
-  //     if (!patientId || !accountNumber) return null;
-  //     try {
-  //       setIsPreviewing(true);
-  //       const res = await api(
-  //         `/drafts/${patientId}/${accountNumber}/versions/${version}`,
-  //       );
-  //       return res.data ?? null;
-  //     } catch (err: any) {
-  //       toast.error(err?.message || "Preview failed");
-  //       return null;
-  //     } finally {
-  //       setIsPreviewing(false);
-  //     }
-  //   },
-  //   [api, patientId, accountNumber],
-  // );
-  // ─────────────────────────────────────────────────────────────────────
-
-  /** MOCK version of getVersionSnapshot */
   const getVersionSnapshot = useCallback(
-    async (_version: string) => {
-      if (!patientId || !accountNumber) return null;
+    async (version: string) => {
+      if (!sessionId) return null;
       try {
         setIsPreviewing(true);
-        const res = mockGetVersionSnapshot(patientId, accountNumber);
+        const res = await api.get(`/drafts/${sessionId}/versions/${version}`);
         return res.data ?? null;
       } catch (err: any) {
         toast.error(err?.message || "Preview failed");
@@ -529,13 +372,13 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
         setIsPreviewing(false);
       }
     },
-    [patientId, accountNumber],
+    [sessionId],
   );
 
   const value = useMemo(
     () => ({
-      patientId,
-      accountNumber,
+      contentId,
+      sessionId,
       sections,
       references,
       currentVersion,
@@ -557,8 +400,8 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
       openSignoff,
       setOpenSignoff,
       handleSignoffConfirm,
-      setAccountNumber,
-      setPatientId,
+      setSessionId,
+      setContentId,
       prepareDraft,
       invokeAgent,
       discardDraft,
@@ -568,8 +411,8 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
       saveInline,
     }),
     [
-      patientId,
-      accountNumber,
+      contentId,
+      sessionId,
       sections,
       references,
       currentVersion,
