@@ -62,7 +62,7 @@ const ContentGrid: React.FC<ContentGridProps> = ({
                 <HiArrowRight className="text-lg" />
               </div>
             </div>
-            <p className="text-sm text-zinc-500 line-clamp-2 leading-relaxed font-medium">
+            <p className="text-sm text-zinc-500 line-clamp-3 leading-relaxed font-medium">
               {item?.description ||
                 "Operational documentation module for patient stay and treatment progress tracking."}
             </p>
