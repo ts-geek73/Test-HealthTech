@@ -8,6 +8,7 @@ import { dischargeSummaryService } from "./discharge-summary.service";
 import { draftServiceProvider } from "./draft-service.provider";
 import { DraftService } from "./draft.service";
 import { saveSignature } from "./saveSignatures";
+import { emitDraftVersionChanged } from "../../socket";
 
 const PrepareSchema = z.object({
   sessionId: z.string().min(1),
@@ -55,7 +56,8 @@ export class AgentController {
       }
 
       // 2. Fetch the session and its sections
-      const sessionService = new (require("./session.service").SessionService)();
+      const sessionService =
+        new (require("./session.service").SessionService)();
       const session = await sessionService.getSessionById(sessionId);
 
       if (!session) {
@@ -140,6 +142,18 @@ export class AgentController {
         sections,
       });
 
+      emitDraftVersionChanged(
+        sessionId,
+        {
+          sessionId,
+          version: draft.currentVersionNumber,
+          action: "save-inline",
+          triggeredBy: createdBy,
+          timestamp: new Date().toISOString(),
+        },
+        req.headers["x-socket-id"] as string,
+      );
+
       return res.status(200).json({
         message: "Version saved successfully",
         draft: draft.toJSON(),
@@ -159,9 +173,7 @@ export class AgentController {
     try {
       const { sessionId } = req.params;
 
-      const draft = await this.draftService.getDraft(
-        sessionId as string,
-      );
+      const draft = await this.draftService.getDraft(sessionId as string);
 
       if (!draft) {
         return res.status(404).json({
@@ -202,6 +214,18 @@ export class AgentController {
         createdBy: parsed.data.createdBy,
       });
 
+      emitDraftVersionChanged(
+        sessionId as string,
+        {
+          sessionId: sessionId as string,
+          version: Number(version.replace("v", "")),
+          action: "commit",
+          triggeredBy: parsed.data.createdBy,
+          timestamp: new Date().toISOString(),
+        },
+        req.headers["x-socket-id"] as string,
+      );
+
       return res.json({
         success: true,
         data: { version },
@@ -240,6 +264,21 @@ export class AgentController {
           success: false,
           error: "Version not found",
         });
+      }
+
+      const updatedDraft = await this.draftService.getDraft(sessionId as string);
+      if (updatedDraft) {
+        emitDraftVersionChanged(
+          sessionId as string,
+          {
+            sessionId: sessionId as string,
+            version: updatedDraft.currentVersionNumber,
+            action: "rollback",
+            triggeredBy: parsed.data.createdBy,
+            timestamp: new Date().toISOString(),
+          },
+          req.headers["x-socket-id"] as string,
+        );
       }
 
       return res.json({ success: true });
@@ -293,9 +332,7 @@ export class AgentController {
     try {
       const { sessionId } = req.params;
 
-      const history = await this.draftService.getHistory(
-        sessionId as string,
-      );
+      const history = await this.draftService.getHistory(sessionId as string);
 
       if (!history) {
         return res.status(404).json({
@@ -371,7 +408,7 @@ export class AgentController {
 
       const result = await this.agentService.invoke(messages, userId, {
         sessionId: sessionId as string,
-        sectionId: sectionId as string
+        sectionId: sectionId as string,
       } as AgentIdentity);
 
       return res.json({ success: true, data: result });
@@ -419,6 +456,22 @@ export class AgentController {
         base64: saved.base64,
       });
 
+      const updatedDraft = await this.draftService.getDraft(
+        sessionId as string,
+      );
+      if (updatedDraft) {
+        emitDraftVersionChanged(
+          sessionId as string,
+          {
+            sessionId: sessionId as string,
+            version: updatedDraft.currentVersionNumber,
+            action: "sign",
+            triggeredBy: signedBy,
+            timestamp: new Date().toISOString(),
+          },
+          req.headers["x-socket-id"] as string,
+        );
+      }
 
       return res.status(200).json({
         message: "Draft signed and document generated successfully",
@@ -442,6 +495,21 @@ export class AgentController {
         return res
           .status(404)
           .json({ success: false, error: "Draft not found" });
+      }
+      
+      const updatedDraft = await this.draftService.getDraft(sessionId as string);
+      if (updatedDraft) {
+        emitDraftVersionChanged(
+          sessionId as string,
+          {
+            sessionId: sessionId as string,
+            version: updatedDraft.currentVersionNumber,
+            action: "discard",
+            triggeredBy: "anonymous",
+            timestamp: new Date().toISOString(),
+          },
+          req.headers["x-socket-id"] as string,
+        );
       }
 
       return res.json({ success: true });

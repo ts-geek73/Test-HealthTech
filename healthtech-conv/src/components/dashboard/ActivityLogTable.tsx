@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import React from "react";
-import { MdModeEdit } from "react-icons/md";
+import { HiArrowRight } from "react-icons/hi";
 import { Button } from "../ui/button";
 
 import type { TrackedSession } from "@/types/session";
@@ -19,17 +19,6 @@ interface ActivityLogTableProps {
   updatedSessionIds?: Set<string>;
   onSessionClick?: (id: string) => void;
 }
-type Column = {
-  label: string;
-  align?: "left" | "right";
-};
-
-const columns: Column[] = [
-  { label: "Unit Name" },
-  { label: "Status" },
-  { label: "Created AT" },
-  { label: "Actions", align: "right" },
-];
 
 const ActivityLogTable: React.FC<ActivityLogTableProps> = ({
   sessions,
@@ -38,13 +27,19 @@ const ActivityLogTable: React.FC<ActivityLogTableProps> = ({
   newSessionIds = new Set(),
   onSessionClick,
 }) => {
+  const [updatingId, setUpdatingId] = React.useState<string | null>(null);
+
   const handleStatusChange = async (sessionId: string, newStatus: string) => {
     if (!onStatusUpdate) return;
-    // if (newStatus !== "active" && newStatus !== "complete") return;
+    if (newStatus !== "active" && newStatus !== "complete") return;
+
     try {
+      setUpdatingId(sessionId);
       await onStatusUpdate(sessionId, newStatus as "active" | "complete");
     } catch (error) {
       console.error("Failed to update session status:", error);
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -62,6 +57,7 @@ const ActivityLogTable: React.FC<ActivityLogTableProps> = ({
         ) : (
           sessions.map((session, index) => {
             const isActive = session.status === "active";
+
             return (
               <div
                 key={session.id + index + "-mobile"}
@@ -75,24 +71,24 @@ const ActivityLogTable: React.FC<ActivityLogTableProps> = ({
                     <span className="text-[10px] font-black text-zinc-300 uppercase tracking-widest leading-none">
                       Unit Name
                     </span>
-                    <button
-                      disabled={!isActive}
-                      onClick={() => onSessionClick?.(session.id)}
-                      className={cn(
-                        "text-sm text-black font-bold uppercase text-left bg-transparent border-none p-0 outline-none transition-all",
-                        isActive
-                          ? "hover:underline underline-offset-4 cursor-pointer"
-                          : "",
-                      )}
-                    >
+
+                    <span className="text-sm text-black font-bold uppercase">
                       {session?.content_title ?? "Unknown"}
-                    </button>
+                    </span>
                   </div>
+
                   <Button
                     variant="ghost"
-                    className="h-9 w-9 p-0 rounded-full border border-zinc-100 bg-white text-zinc-400 hover:text-black shadow-sm"
+                    disabled={!isActive}
+                    onClick={() => onSessionClick?.(session.id)}
+                    className={cn(
+                      "h-9 w-9 p-0 rounded-full border border-zinc-100 bg-white shadow-sm transition-all",
+                      isActive
+                        ? "text-zinc-400 hover:text-black"
+                        : "text-zinc-200 cursor-not-allowed",
+                    )}
                   >
-                    <MdModeEdit className="h-4 w-4" />
+                    <HiArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
 
@@ -101,21 +97,23 @@ const ActivityLogTable: React.FC<ActivityLogTableProps> = ({
                     <span className="text-[10px] font-black text-zinc-300 uppercase tracking-widest leading-none">
                       Operational Status
                     </span>
+
                     <div className="scale-95 origin-left">
                       <StatusSelector
                         currentStatus={session?.status ?? "active"}
-                        // isUpdating={updatingId === session.id}
-                        isUpdating={false}
+                        isUpdating={updatingId === session.id}
                         onUpdate={(newStatus) =>
                           handleStatusChange(session.id, newStatus)
                         }
                       />
                     </div>
                   </div>
+
                   <div className="text-right flex flex-col gap-1">
                     <span className="text-[10px] font-black text-zinc-300 uppercase tracking-widest leading-none">
                       Logged At
                     </span>
+
                     <span className="text-[11px] text-zinc-600 font-bold uppercase tracking-wider">
                       {new Date(session.created_at).toLocaleDateString(
                         "en-US",
@@ -133,102 +131,78 @@ const ActivityLogTable: React.FC<ActivityLogTableProps> = ({
         )}
       </div>
 
-      <table className="hidden md:table w-full text-left border-collapse">
-        <thead>
-          <tr className="bg-zinc-50/50 border-b border-zinc-100">
-            {columns.map((col) => (
-              <th
-                key={col.label}
-                className={`py-5 px-8 text-[10px] font-bold uppercase tracking-widest text-zinc-400 ${
-                  col.align === "right" ? "text-right" : ""
-                }`}
-              >
-                {col.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-100">
+      <div className="hidden md:block">
+        <div className="grid grid-cols-[1fr_1fr_1fr_0.5fr] bg-zinc-50/50 border-b border-zinc-100 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+          <div className="py-5 px-8">Unit Name</div>
+          <div className="py-5 px-3">Status</div>
+          <div className="py-5 px-3">Created At</div>
+          <div className="py-5 px-8 text-right">Actions</div>
+        </div>
+
+        <div className="divide-y divide-zinc-100">
           {loading ? (
-            <tr>
-              <td
-                colSpan={5}
-                className="py-20 text-center font-mono text-[10px] text-zinc-300 animate-pulse uppercase tracking-[0.3em]"
-              >
-                Syncing logs...
-              </td>
-            </tr>
+            <div className="py-20 text-center font-mono text-[10px] text-zinc-300 animate-pulse uppercase tracking-[0.3em]">
+              Syncing logs...
+            </div>
           ) : sessions.length === 0 ? (
-            <tr>
-              <td
-                colSpan={5}
-                className="py-16 text-center text-zinc-400 font-medium text-sm"
-              >
-                No operational sessions logged yet.
-              </td>
-            </tr>
+            <div className="py-16 text-center text-zinc-400 font-medium text-sm">
+              No operational sessions logged yet.
+            </div>
           ) : (
             sessions.map((session, index) => {
-              // To Do: change status later
-              const isActive = session?.status ?? "active" === "active";
+              const isActive = session?.status === "active";
+
               return (
-                <tr
+                <div
                   key={session.id + index}
                   className={cn(
-                    "group w-full [&_td]:p-3 hover:bg-zinc-50/50 transition-colors",
+                    "grid grid-cols-[1fr_1fr_1fr_0.5fr] items-center hover:bg-zinc-50/50 transition-colors",
                     newSessionIds.has(session.id) && "animate-row-enter",
                   )}
                 >
-                  <td className="pl-8!">
-                    <button
-                      disabled={!isActive}
-                      onClick={() => onSessionClick?.(session.id)}
-                      className={cn(
-                        "text-sm text-black font-bold uppercase text-left bg-transparent border-none p-0 outline-none transition-all",
-                        isActive
-                          ? "hover:underline underline-offset-4 cursor-pointer"
-                          : "",
-                      )}
-                    >
-                      {session?.content_title ?? "Unknown"}
-                    </button>
-                  </td>
-                  <td className="p-0! align-middle">
+                  <div className="px-8 py-4 text-sm text-black font-bold uppercase">
+                    {session?.content_title ?? "Unknown"}
+                  </div>
+
+                  <div className="px-3 py-4">
                     <StatusSelector
                       currentStatus={session?.status ?? "active"}
-                      // isUpdating={updatingId === session.id}
-                      isUpdating={false}
+                      isUpdating={updatingId === session.id}
                       onUpdate={(newStatus) =>
                         handleStatusChange(session.id, newStatus)
                       }
                     />
-                  </td>
-                  <td>
-                    <div className="flex flex-col text-sm text-zinc-600 font-bold">
-                      {new Date(session.created_at).toLocaleDateString(
-                        "en-US",
-                        {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        },
-                      )}
-                    </div>
-                  </td>
-                  <td className="text-right pr-8!">
+                  </div>
+
+                  <div className="px-3 py-4 text-sm text-zinc-600 font-bold">
+                    {new Date(session.created_at).toLocaleDateString("en-US", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </div>
+
+                  <div className="px-8 py-4 flex justify-end">
                     <Button
                       variant="ghost"
-                      className="h-8 w-8 p-0 rounded-full hover:bg-white hover:border hover:border-zinc-200 transition-all text-zinc-400 hover:text-black"
+                      disabled={!isActive}
+                      onClick={() => onSessionClick?.(session.id)}
+                      className={cn(
+                        "h-8 w-8 p-0 rounded-full transition-all",
+                        isActive
+                          ? "hover:bg-white hover:border hover:border-zinc-200 text-zinc-400 hover:text-black"
+                          : "text-zinc-200 cursor-not-allowed",
+                      )}
                     >
-                      <MdModeEdit className="h-4 w-4" />
+                      <HiArrowRight className="h-4 w-4" />
                     </Button>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               );
             })
           )}
-        </tbody>
-      </table>
+        </div>
+      </div>
     </div>
   );
 };

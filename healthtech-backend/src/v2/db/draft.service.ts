@@ -98,38 +98,39 @@ export class DraftService {
         sessionId: params.sessionId,
       });
 
-      setImmediate(async () => {
-        try {
-          logger.info("Starting background embedding generation", {
-            sessionId: params.sessionId,
-          });
+      // setImmediate(async () => {
+      //   try {
+      //     logger.info("Starting background embedding generation", {
+      //       sessionId: params.sessionId,
+      //     });
 
-          const embeddings = await this.embeddings.embedDocuments(
-            entries.map(([, c]) => c),
-          );
+      //     const embeddings = await this.embeddings.embedDocuments(
+      //       entries.map(([, c]) => c),
+      //     );
 
-          sections.forEach((s, i) => s.updateEmbedding(embeddings[i]));
+      //     sections.forEach((s, i) => s.updateEmbedding(embeddings[i]));
 
-          await Promise.all([
-            this.repository.upsertSections(draft.id, sections),
-            this.repository.updateVersionSectionEmbeddings(versionId, sections),
-          ]);
+      //     await Promise.all([
+      //       this.repository.upsertSections(draft.id, sections),
+      //       this.repository.updateVersionSectionEmbeddings(versionId, sections),
+      //     ]);
 
-          this.searchService.buildIndex(draft);
+      //     this.searchService.buildIndex(draft);
 
-          logger.info(
-            "Background tasks completed (embeddings + search index)",
-            {
-              sessionId: params.sessionId,
-            },
-          );
-        } catch (bgError) {
-          logger.error("Error in background tasks", {
-            sessionId: params.sessionId,
-            error: bgError,
-          });
-        }
-      });
+      //     logger.info(
+      //       "Background tasks completed (embeddings + search index)",
+      //       {
+      //         sessionId: params.sessionId,
+      //       },
+      //     );
+      //   } catch (bgError) {
+      //     logger.error("Error in background tasks", {
+      //       sessionId: params.sessionId,
+      //       error: bgError,
+      //     });
+      //   }
+      // });
+
 
       return draft;
     } catch (error) {

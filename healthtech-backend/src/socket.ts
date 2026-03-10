@@ -1,6 +1,14 @@
 import { Server as SocketIOServer } from "socket.io";
 import logger from "./logger";
 
+export interface DraftVersionPayload {
+  sessionId: string;
+  version: number;
+  action: string;
+  triggeredBy: string;
+  timestamp: string;
+}
+
 let io: SocketIOServer | null = null;
 
 export function setSocket(server: SocketIOServer) {
@@ -30,4 +38,22 @@ export function emitSessionDeleted(payload: unknown) {
   const socket = getSocket();
   if (!socket) return;
   socket.emit("session_deleted", payload);
+}
+
+export function emitDraftVersionChanged(
+  sessionId: string,
+  payload: DraftVersionPayload,
+  excludeSocketId?: string,
+) {
+  const socket = getSocket();
+  if (!socket) return;
+
+  if (excludeSocketId) {
+    socket
+      .to(`draft:${sessionId}`)
+      .except(excludeSocketId)
+      .emit("draft:version_changed", payload);
+  } else {
+    socket.to(`draft:${sessionId}`).emit("draft:version_changed", payload);
+  }
 }

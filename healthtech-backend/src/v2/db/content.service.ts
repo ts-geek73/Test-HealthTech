@@ -23,7 +23,7 @@ export class ContentService {
                     created_at, 
                     updated_at
                 FROM content
-                ORDER BY created_at DESC
+                ORDER BY title ASC
             `;
             
             const result = await pool.query(query);

@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import api from "@/lib/api";
+import { socket } from "@/lib/socket";
 import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -93,12 +95,21 @@ interface DraftContextValue {
   commitDraft: (createdBy: string) => Promise<void>;
   rollback: (version: string) => Promise<void>;
   getVersionSnapshot: (version: string) => Promise<VersionSnapshot | null>;
+  isStale: boolean;
   saveInline: (
     contentId: string,
     sessionId: string,
     sections: InlineSection[],
   ) => Promise<void>;
 }
+
+const actionMap: Record<string, string> = {
+  "save-inline": "updated the draft",
+  commit: "committed changes",
+  rollback: "reverted the draft",
+  sign: "signed the draft",
+  discard: "discarded the draft",
+};
 
 const DraftContext = createContext<DraftContextValue | null>(null);
 
@@ -126,6 +137,8 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
   const [signoff, setSignoff] = useState<SignoffData | null>(null);
   const [openSignoff, setOpenSignoff] = useState(false);
 
+  const [isStale, setIsStale] = useState(false);
+
   const isSigned = !!signoff;
 
   const isAnyLoading =
@@ -135,13 +148,14 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
     isDiscarding ||
     isRollingBack ||
     isInlineSaving ||
-    isPreviewing;
+    isPreviewing ||
+    isStale;
 
-  const loadAllData = useCallback(async (sessionId: string) => {
+  const loadAllData = useCallback(async (sId: string) => {
     try {
       const [draftRes, historyRes] = await Promise.all([
-        api.get(`/drafts/${sessionId}`),
-        api.get(`/drafts/${sessionId}/history`),
+        api.get(`/drafts/${sId}`),
+        api.get(`/drafts/${sId}/history`),
       ]);
       const draft = draftRes.data.data;
       setSections(draft.sections ?? []);
@@ -164,6 +178,39 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
+  useEffect(() => {
+    if (!sessionId) return;
+
+    socket.connect();
+    socket.emit("join_draft_room", sessionId);
+
+    const handleVersionChanged = async (payload: {
+      sessionId: string;
+      version: number;
+      action: string;
+    }) => {
+      if (payload.sessionId !== sessionId) return;
+
+      const friendlyAction = actionMap[payload.action] || "updated the draft";
+
+      setIsStale(true);
+      toast.info(`Another user ${friendlyAction}`, {
+        description: "Refreshing to the latest version…",
+        duration: 4000,
+      });
+
+      await loadAllData(payload.sessionId);
+      setIsStale(false);
+    };
+
+    socket.on("draft:version_changed", handleVersionChanged);
+
+    return () => {
+      socket.off("draft:version_changed", handleVersionChanged);
+      socket.emit("leave_draft_room", sessionId);
+    };
+  }, [sessionId, loadAllData]);
+
   const refresh = useCallback(async () => {
     if (!contentId || !sessionId) return;
     await loadAllData(sessionId);
@@ -180,6 +227,7 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
           contentId: cId,
           sessionId: sId,
         });
+        localStorage.setItem("draft_session_id", sId);
         setContentId(cId);
         setSessionId(sId);
 
@@ -190,12 +238,16 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
         setIsPreparing(false);
       }
     },
-    [loadAllData],
+    [loadAllData, contentId],
   );
 
   const invokeAgent = useCallback(
     async (messages: any[], sectionId?: string | null) => {
       if (!sessionId) return;
+      if (isStale) {
+        toast.info("Draft is being updated. Please wait.");
+        return;
+      }
       try {
         setIsInvoking(true);
         const res = await api.post("/invoke", {
@@ -214,12 +266,16 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
         setIsInvoking(false);
       }
     },
-    [sessionId],
+    [sessionId, isStale],
   );
 
   const commitDraft = useCallback(
     async (createdBy: string) => {
       if (!sessionId) return;
+      if (isStale) {
+        toast.info("Draft is being updated. Please wait.");
+        return;
+      }
       try {
         setIsSaving(true);
         const res = await api.post(`/drafts/${sessionId}/commit`, {
@@ -236,11 +292,15 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
         setIsSaving(false);
       }
     },
-    [sessionId, refresh],
+    [sessionId, refresh, isStale],
   );
 
   const discardDraft = useCallback(async () => {
     if (!sessionId) return;
+    if (isStale) {
+      toast.info("Draft is being updated. Please wait.");
+      return;
+    }
 
     try {
       setIsDiscarding(true);
@@ -255,11 +315,15 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
     } finally {
       setIsDiscarding(false);
     }
-  }, [sessionId, refresh]);
+  }, [sessionId, refresh, isStale]);
 
   const rollback = useCallback(
     async (version: string) => {
       if (!sessionId) return;
+      if (isStale) {
+        toast.info("Draft is being updated. Please wait.");
+        return;
+      }
       try {
         setIsRollingBack(true);
         await api.post(`/drafts/${sessionId}/rollback`, {
@@ -274,12 +338,16 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
         setIsRollingBack(false);
       }
     },
-    [sessionId, refresh],
+    [sessionId, refresh, isStale],
   );
 
   const handleSignoffConfirm = useCallback(
     async (signatureDataUrl: string) => {
       if (!sessionId) return;
+      if (isStale) {
+        toast.info("Draft is being updated. Please wait.");
+        return;
+      }
       try {
         setIsSaving(true);
         const timezoneOffset = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -297,22 +365,26 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
         setIsSaving(false);
       }
     },
-    [sessionId, refresh],
+    [sessionId, refresh, isStale],
   );
 
   const saveInline = useCallback(
     async (
       _contentId: string,
-      sessionId: string,
+      sId: string,
       inlineSections: InlineSection[],
     ) => {
+      if (isStale) {
+        toast.info("Draft is being updated. Please wait.");
+        return;
+      }
       try {
         setIsInlineSaving(true);
-        await api.post(`/drafts/${sessionId}/save-inline`, {
-          sessionId,
+        await api.post(`/drafts/${sId}/save-inline`, {
+          sessionId: sId,
           sections: inlineSections,
         });
-        await loadAllData(sessionId);
+        await loadAllData(sId);
         toast.success("Version saved");
       } catch (err: any) {
         toast.error(err?.message || "Inline save failed");
@@ -320,7 +392,7 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
         setIsInlineSaving(false);
       }
     },
-    [loadAllData],
+    [loadAllData, isStale],
   );
 
   const getVersionSnapshot = useCallback(
@@ -374,6 +446,7 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
       rollback,
       getVersionSnapshot,
       saveInline,
+      isStale,
     }),
     [
       contentId,
@@ -403,6 +476,7 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
       rollback,
       getVersionSnapshot,
       saveInline,
+      isStale,
     ],
   );
 

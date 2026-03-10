@@ -4,6 +4,7 @@ import { ChevronDown, Clock, Eye, RotateCcw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import AlertDialog from "./AlertDialog";
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function normalizeVersion(
   version: string | number | null | undefined,
 ): string | null {
@@ -134,14 +135,14 @@ const VersionHistoryDropdown = ({
         </Button>
 
         {open && (
-          <div className="absolute right-0 top-full mt-1.5 w-[calc(100vw-2rem)] sm:w-72 rounded-xl border border-border bg-card shadow-lg z-50 overflow-hidden">
+          <div className="absolute left-[80%] xs:max-sm:left-3/4 max-sm:-translate-x-1/2 sm:right-0 top-full mt-1.5 w-[calc(100vw-2rem)] sm:w-72 rounded-xl border border-border bg-card shadow-lg z-50 overflow-hidden">
             <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
               <Clock className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-xs font-semibold text-foreground">
                 Version History
               </span>
               <span className="ml-auto text-[10px] text-muted-foreground/60">
-                {versions.length} version{versions.length !== 1 ? "s" : ""}
+                {versions.length} version{versions.length > 1 ? "s" : ""}
               </span>
             </div>
 
@@ -161,7 +162,7 @@ const VersionHistoryDropdown = ({
                   <div key={String(v.version)}>
                     <div
                       onClick={() => {
-                        if (!isActionable) return;
+                        if (!isActionable || isCurrent) return;
                         setSelected(isSelected ? null : String(v.version));
                       }}
                       className={`rounded-lg px-2 md:px-3 py-2 md:py-2.5 transition-colors ${

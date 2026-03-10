@@ -125,6 +125,7 @@ export const useDraftSummary = () => {
     openSignoff,
     setOpenSignoff,
     handleSignoffConfirm,
+    isStale,
   } = useDraft();
 
   const [editor, setEditor] = useState<any>(null);
@@ -348,5 +349,6 @@ export const useDraftSummary = () => {
     sessionId,
     setContentId,
     setSessionId,
+    isStale,
   };
 };

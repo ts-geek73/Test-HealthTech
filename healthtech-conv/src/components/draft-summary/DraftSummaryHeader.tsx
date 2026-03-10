@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
-import { BookOpen, Mic, Save, Signature, Wand2 } from "lucide-react";
+import { BookOpen, Mic, Save, Wand2 } from "lucide-react";
 import { useState } from "react";
-import { HiArrowLeft } from "react-icons/hi2";
+import { HiArrowLeft, HiArrowRight } from "react-icons/hi2";
 import { Link } from "react-router-dom";
 import ReferenceViewer from "../discharge/ReferenceViewer";
 import VersionHistoryDropdown, {
@@ -18,6 +18,8 @@ interface Reference {
 interface DraftSummaryHeaderProps extends VersionHistoryDropdownProps {
   onRefresh: () => void;
   onVoiceClick: () => void;
+  onNextSession?: () => void;
+  hasNext?: boolean;
   onSave: () => void;
   contentId: string | null;
   sessionId: string | null;
@@ -36,11 +38,10 @@ interface DraftSummaryHeaderProps extends VersionHistoryDropdownProps {
 }
 
 const DraftSummaryHeader = ({
-  onRefresh,
   onVoiceClick,
-  onSave,
+  onNextSession,
+  hasNext,
   isPreparing,
-  editor,
   signoff,
   dirty,
   isPreviewing,
@@ -50,10 +51,6 @@ const DraftSummaryHeader = ({
   openSignoff,
   setShowInlineConfirm,
   inlineDirty,
-  setSessionId,
-  setContentId,
-  contentId,
-  sessionId,
   ...props
 }: DraftSummaryHeaderProps) => {
   const [showRefs, setShowRefs] = useState(false);
@@ -61,20 +58,25 @@ const DraftSummaryHeader = ({
   return (
     <>
       <header className="flex items-center justify-between px-2 sm:px-4 py-3 border-b bg-card shadow-sm sticky top-0 z-10">
-        <div className="flex items-center gap-4">
-          <Link
-            to="/"
-            className="group flex items-center gap-2.5 transition-all duration-300"
-          >
-            <div className="flex items-center justify-center h-8 w-8 rounded-full bg-zinc-100 text-black/60 group-hover:text-black transition-all duration-300 shadow-sm group-hover:shadow-md">
-              <HiArrowLeft className="text-sm transition-transform duration-300 group-hover:-translate-x-0.5" />
-            </div>
-            <div className="hidden sm:flex flex-col items-start leading-none gap-0.5">
-              <span className="text-sm font-bold text-zinc-600 uppercase tracking-widest group-hover:text-black transition-colors">
-                Dashboard
-              </span>
-            </div>
-          </Link>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                to="/"
+                className="group flex items-center gap-2.5 transition-all duration-300"
+              >
+                <div className="flex items-center justify-center h-8 p-2 rounded-full bg-zinc-100 text-black/60 group-hover:text-black transition-all duration-300 shadow-sm group-hover:shadow-md">
+                  <HiArrowLeft className="text-sm transition-transform duration-300 group-hover:-translate-x-0.5" />
+                </div>
+                <div className="hidden sm:flex flex-col items-start leading-none gap-0.5">
+                  <span className="text-sm font-bold text-zinc-600 uppercase tracking-widest group-hover:text-black transition-colors">
+                    Dashboard
+                  </span>
+                </div>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="sm:hidden">Back to Dashboard</TooltipContent>
+          </Tooltip>
           {/* <DraftSummaryToolbar editor={editor} /> */}
 
           {isPreparing && (
@@ -104,9 +106,8 @@ const DraftSummaryHeader = ({
             props.previewVersion !== props.currentVersion && (
               <div className="flex items-center gap-1.5 px-2 md:px-3 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-widest rounded-full border border-blue-100">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
-                <span className="hidden md:inline">
-                  v{props.previewVersion}
-                </span>
+                <span className="hidden md:inline">Previewing</span>
+                {props.previewVersion}
               </div>
             )}
         </div>
@@ -163,7 +164,7 @@ const DraftSummaryHeader = ({
                   <TooltipContent>Save Version</TooltipContent>
                 </Tooltip>
 
-                <Tooltip>
+                {/* <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       variant="outline"
@@ -177,7 +178,7 @@ const DraftSummaryHeader = ({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Sign off and Lock Record</TooltipContent>
-                </Tooltip>
+                </Tooltip> */}
 
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -201,6 +202,21 @@ const DraftSummaryHeader = ({
                   </TooltipContent>
                 </Tooltip>
               </>
+            )}
+
+            {hasNext && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={() => onNextSession?.()}
+                    className="h-8 max-sm:p-2 bg-black text-white rounded-full hover:bg-zinc-800 transition-all flex items-center gap-2 text-sm font-bold shadow-sm sm:ml-2"
+                  >
+                    <span className="hidden md:inline">Next</span>
+                    <HiArrowRight className="text-lg" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="sm:hidden">Another user started the next session. Click to join.</TooltipContent>
+              </Tooltip>
             )}
           </div>
         }

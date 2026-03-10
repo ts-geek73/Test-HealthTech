@@ -2,15 +2,16 @@ import AlertDialog from "@/components/discharge/AlertDialog";
 import EditDiffViewer from "@/components/discharge/EditDiffViewer";
 import { VoicePanel } from "@/components/discharge/VoicePanel";
 import DraftSummaryHeader from "@/components/draft-summary/DraftSummaryHeader";
-import { useDraftSummary } from "@/components/draft-summary/hooks/useDraftSummary";
+import {
+  useDraftSummary,
+  type EditResponse,
+} from "@/components/draft-summary/hooks/useDraftSummary";
 import RichtextEditor from "@/components/draft-summary/RichtextEditor";
-import { Button } from "@/components/ui/button";
 import type { TrackedSession } from "@/types/session";
-import { HiArrowRight } from "react-icons/hi2";
 import { toast } from "sonner";
 import SignoffModal from "./SignoffModal";
 
-export const mockEditResponse = {
+const mockEditResponse: EditResponse = {
   success: true,
   needsClarification: false,
   dirty: true,
@@ -48,10 +49,7 @@ interface DraftSummaryProps {
   hasNext?: boolean;
 }
 
-const DraftSummary = ({
-  onNextSession,
-  hasNext,
-}: DraftSummaryProps) => {
+const DraftSummary = ({ onNextSession, hasNext }: DraftSummaryProps) => {
   const {
     content,
     showVoice,
@@ -99,6 +97,7 @@ const DraftSummary = ({
     sessionId,
     setContentId,
     setSessionId,
+    isStale,
   } = useDraftSummary();
 
   const isContentLoading =
@@ -107,7 +106,8 @@ const DraftSummary = ({
     isSaving ||
     isRollingBack ||
     isPreviewing ||
-    isPreparing;
+    isPreparing ||
+    isStale;
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -142,6 +142,8 @@ const DraftSummary = ({
         inlineDirty={inlineDirty}
         setShowInlineConfirm={setShowInlineConfirm}
         openSignoff={() => setOpenSignoff(true)}
+        hasNext={hasNext}
+        onNextSession={onNextSession}
       />
 
       <main className="flex-1 p-4 md:p-8 w-full overflow-auto flex flex-col justify-center bg-muted/10">
@@ -161,27 +163,6 @@ const DraftSummary = ({
             }
             signedBy={signoff?.signedBy}
           />
-          <footer className="mt-12 pt-10 border-t border-zinc-150">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-              <div className="flex-1 space-y-2">
-                <p className="text-zinc-500 text-sm leading-relaxed max-w-xl">
-                  This clinical report has been finalized and securely captured.
-                  All activities are automatically preserved and remain
-                  accessible within your professional dashboard history.
-                </p>
-              </div>
-
-              {hasNext && (
-                <Button
-                  onClick={() => onNextSession?.()}
-                  className="h-11 w-36 px-6 bg-black text-white rounded-full hover:bg-zinc-800 transition-all flex items-center gap-2 text-sm font-bold shadow-sm"
-                >
-                  Next
-                  <HiArrowRight className="text-lg" />
-                </Button>
-              )}
-            </div>
-          </footer>
 
           {isSigned && (
             <div className="absolute inset-0 rounded-xl cursor-default" />
@@ -219,7 +200,7 @@ const DraftSummary = ({
       {showDiff && (
         <div className="fixed bottom-0 left-0 right-0 z-40 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
           <EditDiffViewer
-            editResponse={lastEdits as any ?? mockEditResponse}
+            editResponse={(lastEdits as EditResponse) ?? mockEditResponse}
             loading={loading}
             commitDraft={commitDraft}
             onClose={async () => setShowDiff(false)}

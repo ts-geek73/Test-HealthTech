@@ -12,12 +12,6 @@ const PORT = process.env.PORT || 3000;
 
 async function startServer() {
   try {
-    // logger.info("[SERVER] Connecting to file server...");
-
-    // await connectFileServer();
-
-    // logger.info("[SERVER] File server connection established");
-
     const httpServer = createServer(app);
 
     io = new SocketIOServer(httpServer, {
@@ -29,6 +23,16 @@ async function startServer() {
 
     io.on("connection", (socket) => {
       logger.info(`[Socket] Client connected: ${socket.id}`);
+
+      socket.on("join_draft_room", (sessionId: string) => {
+        socket.join(`draft:${sessionId}`);
+        logger.info(`[Socket] ${socket.id} joined draft:${sessionId}`);
+      });
+
+      socket.on("leave_draft_room", (sessionId: string) => {
+        socket.leave(`draft:${sessionId}`);
+        logger.info(`[Socket] ${socket.id} left draft:${sessionId}`);
+      });
 
       socket.on("disconnect", () => {
         logger.info(`[Socket] Client disconnected: ${socket.id}`);

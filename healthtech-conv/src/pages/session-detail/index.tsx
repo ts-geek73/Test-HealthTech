@@ -55,10 +55,11 @@ const SessionDetailPage = () => {
 
   const nextSession = useMemo(() => {
     if (currentIndex === -1) return null;
-    if (currentIndex + 1 >= activeSessions.length) {
-      const tempIndex = (currentIndex + 1) % activeSessions.length;
-      return activeSessions[tempIndex];
-    }
+    if(currentIndex + 1 >= activeSessions.length) return null;
+    // if (currentIndex + 1 >= activeSessions.length) {
+    //   const tempIndex = (currentIndex + 1) % activeSessions.length;
+    //   return activeSessions[tempIndex];
+    // }
     return activeSessions[currentIndex + 1];
   }, [activeSessions, currentIndex]);
 
