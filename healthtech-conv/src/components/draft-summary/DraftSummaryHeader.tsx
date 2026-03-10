@@ -215,7 +215,7 @@ const DraftSummaryHeader = ({
                     <HiArrowRight className="text-lg" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="sm:hidden">Another user started the next session. Click to join.</TooltipContent>
+                <TooltipContent side="bottom">Another user started the next session. Click to join.</TooltipContent>
               </Tooltip>
             )}
           </div>
