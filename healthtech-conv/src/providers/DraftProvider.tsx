@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import api from "@/lib/api";
 import React, {
   createContext,
@@ -136,74 +137,32 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
     isInlineSaving ||
     isPreviewing;
 
-  // ── ORIGINAL api() helper (commented out – using mock data) ──────────
-  // const api = useCallback(async (url: string, options?: RequestInit) => {
-  //   const res = await fetch(`${BASE_URL}${url}`, options);
-  //   if (!res.ok) {
-  //     const text = await res.text();
-  //     throw new Error(text || "Request failed");
-  //   }
-  //   return res.json();
-  // }, []);
-  // ─────────────────────────────────────────────────────────────────────
-
-  // ── ORIGINAL loadAllData (commented out – using mock data) ────────────
-  // const loadAllData = useCallback(
-  //   async (pid: string, acc: string) => {
-  //     const [draftRes, historyRes] = await Promise.all([
-  //       api(`/drafts/${pid}/${acc}`),
-  //       api(`/drafts/${pid}/${acc}/history`),
-  //     ]);
-  //     const draft = draftRes.data;
-  //     setSections(draft.sections ?? []);
-  //     setReferences(draft.references ?? []);
-  //     setCurrentVersion(draft.currentVersion);
-  //     setDirty(false);
-  //     setHistory(historyRes.data ?? []);
-  //     if (draft?.isSigned) {
-  //       setSignoff({
-  //         signedBy: draft.signedBy,
-  //         signatureDataUrl: draft.signature,
-  //         signedAt: draft.signedAt,
-  //         isSigned: draft.isSigned,
-  //       });
-  //     } else {
-  //       setSignoff(null);
-  //     }
-  //   },
-  //   [api],
-  // );
-  // ─────────────────────────────────────────────────────────────────────
-
-  const loadAllData = useCallback(
-    async (sessionId: string) => {
-      try {
-        const [draftRes, historyRes] = await Promise.all([
-          api.get(`/drafts/${sessionId}`),
-          api.get(`/drafts/${sessionId}/history`),
-        ]);
-        const draft = draftRes.data.data;
-        setSections(draft.sections ?? []);
-        setReferences(draft.references ?? []);
-        setCurrentVersion(draft.currentVersion);
-        setDirty(false);
-        setHistory(historyRes.data.data ?? []);
-        if (draft?.isSigned) {
-          setSignoff({
-            signedBy: draft.signedBy,
-            signatureDataUrl: draft.signature,
-            signedAt: draft.signedAt,
-            isSigned: draft.isSigned,
-          });
-        } else {
-          setSignoff(null);
-        }
-      } catch (err) {
-        console.error("Failed to load session data", err);
+  const loadAllData = useCallback(async (sessionId: string) => {
+    try {
+      const [draftRes, historyRes] = await Promise.all([
+        api.get(`/drafts/${sessionId}`),
+        api.get(`/drafts/${sessionId}/history`),
+      ]);
+      const draft = draftRes.data.data;
+      setSections(draft.sections ?? []);
+      setReferences(draft.references ?? []);
+      setCurrentVersion(draft.currentVersion);
+      setDirty(false);
+      setHistory(historyRes.data.data ?? []);
+      if (draft?.isSigned) {
+        setSignoff({
+          signedBy: draft.signedBy,
+          signatureDataUrl: draft.signature,
+          signedAt: draft.signedAt,
+          isSigned: draft.isSigned,
+        });
+      } else {
+        setSignoff(null);
       }
-    },
-    [],
-  );
+    } catch (err) {
+      console.error("Failed to load session data", err);
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!contentId || !sessionId) return;
@@ -211,18 +170,20 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [contentId, sessionId, loadAllData]);
 
   const prepareDraft = useCallback(
-    async (contentId: string, sessionId: string) => {
+    async (cId: string, sId: string) => {
+      if (!cId || !sId) return;
+      if (contentId === cId) return;
       try {
         setIsPreparing(true);
 
         await api.post("/prepare-draft", {
-          contentId,
-          sessionId,
+          contentId: cId,
+          sessionId: sId,
         });
-        setContentId(contentId);
-        setSessionId(sessionId);
-        
-        await loadAllData(sessionId);
+        setContentId(cId);
+        setSessionId(sId);
+
+        await loadAllData(sId);
       } catch (err: any) {
         toast.error(err?.message || "Failed to prepare draft.");
       } finally {
@@ -340,7 +301,11 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const saveInline = useCallback(
-    async (_contentId: string, sessionId: string, inlineSections: InlineSection[]) => {
+    async (
+      _contentId: string,
+      sessionId: string,
+      inlineSections: InlineSection[],
+    ) => {
       try {
         setIsInlineSaving(true);
         await api.post(`/drafts/${sessionId}/save-inline`, {
@@ -446,6 +411,7 @@ export const DraftProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useDraft = (): DraftContextValue => {
   const ctx = useContext(DraftContext);
   if (!ctx) throw new Error("useDraft must be used inside DraftProvider");

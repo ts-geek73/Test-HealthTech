@@ -66,7 +66,6 @@ export class AgentController {
       }
 
       // 3. Prepare the sections for the draft
-      // We convert content_sections to the format prepareDraft expects: Record<string, string>
       const draftSections: Record<string, string> = {};
       session.sections.forEach((s: any) => {
         draftSections[s.title] = s.content;
@@ -82,7 +81,6 @@ export class AgentController {
         sessionId,
         createdBy: userId,
         draft: draftSections,
-        // No references for now unless we add them to content_sections
       });
 
       logger.info("Draft created successfully", {
@@ -94,7 +92,6 @@ export class AgentController {
         success: true,
         data: {
           ...draft.toJSON(),
-          // metadata: prepared.metadata,
         },
       });
     } catch (e: any) {

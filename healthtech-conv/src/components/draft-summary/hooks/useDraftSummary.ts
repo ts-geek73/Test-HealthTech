@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { normalizeVersion } from "@/components/discharge/VersionHistoryDropdown";
 import { useDraft } from "@/providers/DraftProvider";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -153,27 +154,27 @@ export const useDraftSummary = () => {
     : true;
 
   useEffect(() => {
+    if (!contentId || !sessionId) return;
+
+    const key = `${contentId}-${sessionId}`;
+
+    if (hasPrepared.current === key) return;
+
+    hasPrepared.current = key;
+
     const init = async () => {
       try {
-        const key = `${sessionId}`;
-        hasPrepared.current = key;
-
         setIsPreparing(true);
-        await prepareDraft(contentId ?? "", sessionId ?? "");
+        await prepareDraft(contentId, sessionId);
       } catch {
         toast.error("Failed to prepare draft");
+        hasPrepared.current = null; // unlock if failed
       } finally {
         setIsPreparing(false);
       }
     };
 
-    if (!contentId || !sessionId) return;
-
-    const key = `${contentId}-${sessionId}`;
-
-    if (hasPrepared.current !== key) {
-      init();
-    }
+    init();
   }, [contentId, sessionId]);
 
   const activeSections = useMemo(
@@ -186,7 +187,10 @@ export const useDraftSummary = () => {
   useEffect(() => {
     if (!editor || !renderedHtml) return;
 
-    editor.commands.setContent(renderedHtml);
+    queueMicrotask(() => {
+      editor.commands.setContent(renderedHtml);
+    });
+
     setContent(renderedHtml);
     currentHtmlRef.current = renderedHtml;
     setInlineDirty(false);

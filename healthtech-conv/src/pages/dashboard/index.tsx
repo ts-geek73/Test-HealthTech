@@ -6,7 +6,7 @@ import {
   DashboardSection,
 } from "@/components/dashboard";
 import { Badge } from "@/components/ui/badge";
-import { trackVisit, useContents } from "@/hooks/useContents";
+import { useContents } from "@/hooks/useContents";
 import { useSessionUpdates } from "@/hooks/useSessionUpdates";
 import { useNavigate } from "react-router-dom";
 
@@ -23,16 +23,13 @@ const DashboardPage: React.FC = () => {
 
   const totalLoading = contentsLoading || sessionsLoading;
 
-  const handleContentClick = async (contentId: string) => {
-    const session = await trackVisit(contentId);
-    if (session?.id) {
-      navigate(`/session/${session.id}`);
-    }
+  const handleContentClick = (contentId: string) => {
+    navigate(`/content/${contentId}`);
   };
 
   const handleSessionClick = (sessionId: string) => {
     const session = sessions.find((s) => s.id === sessionId);
-    if (session) { //add && session.status === "active"
+    if (session && session.status === "active") {
       navigate(`/session/${session.id}`);
     }
   };

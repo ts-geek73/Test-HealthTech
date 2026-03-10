@@ -6,22 +6,21 @@ import api from "@/lib/api";
 import { useDraft } from "@/providers/DraftProvider";
 import type { TrackedSession } from "@/types/session";
 import { Loader2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import DraftSummary from "../draft-summary";
-
-
 
 const SessionDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { prepareDraft, contentId: currentContentId } = useDraft();
+  const { prepareDraft, contentId } = useDraft();
   const { sessions, loading: sessionsLoading } = useSessionUpdates();
   const [session, setSession] = useState<TrackedSession | null>(null);
   const [loading, setLoading] = useState(true);
+  const preparedSessionId = useRef<string | null>(null);
 
   const activeSessions = useMemo(
-    () => sessions.filter((s) => s?.status ?? "active" === "active"),
+    () => sessions.filter((s) => s?.status === "active"),
     [sessions],
   );
 
@@ -32,10 +31,10 @@ const SessionDetailPage = () => {
       const { data } = await api.get(`/sessions/${id}`);
       if (data.success) {
         setSession(data.data);
-        const contentId = data.data.content_id;
-
-        if (currentContentId !== contentId) {
-          await prepareDraft(contentId, id);
+        const newContentId = data?.data?.content_id;
+        if (newContentId !== contentId && preparedSessionId.current !== id) {
+          preparedSessionId.current = id;         
+          await prepareDraft(newContentId, id);
         }
       }
     } catch (err) {

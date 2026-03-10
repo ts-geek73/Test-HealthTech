@@ -6,6 +6,7 @@ import "./App.css";
 import DashboardPage from "./pages/dashboard";
 import NotFound from "./pages/NotFound";
 import SessionDetailPage from "./pages/session-detail";
+import ContentRedirectPage from "./pages/content/[id]";
 import { DraftProvider } from "./providers/DraftProvider";
 
 function App() {
@@ -24,6 +25,9 @@ function App() {
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/session/:id" element={<SessionDetailPage />} />
+            {/* new dynamic content route - creates a session in the background and then
+                navigates to the resulting session detail page */}
+          <Route path="/content/:id" element={<ContentRedirectPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </DraftProvider>
