@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
-import { socket } from "@/lib/socket";
 import api from "@/lib/api";
+import { socket } from "@/lib/socket";
 import type { TrackedSession } from "@/types/session";
+import { useCallback, useEffect, useState } from "react";
 
 export const useSessionUpdates = () => {
   const [sessions, setSessions] = useState<TrackedSession[]>([]);
