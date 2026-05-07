@@ -1,0 +1,64 @@
+name: Auto PR Description
+
+on:
+    pull_request:
+        types: [ opened, reopened, synchronize ]
+
+permissions:
+    pull-requests: write
+    contents: read
+
+jobs:
+    generate-description:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Generate PR description with ChatGPT
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+                  PR_NUMBER: ${{ github.event.pull_request.number }}
+                  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+              run: |
+                  DIFF=$(git diff $BASE_SHA...$HEAD_SHA -- . ':(exclude)package-lock.json' ':(exclude)*.lock' | head -c 8000)
+
+                  COMMITS=$(git log $BASE_SHA...$HEAD_SHA --pretty=format:"- %s (%an)" | head -50)
+
+                  RESPONSE=$(curl -s https://api.openai.com/v1/chat/completions \
+                    -H "Authorization: Bearer $OPENAI_API_KEY" \
+                    -H "Content-Type: application/json" \
+                    -d "$(jq -n \
+                      --arg diff "$DIFF" \
+                      --arg commits "$COMMITS" \
+                      '{
+                        model: "gpt-4o",
+                        max_tokens: 1024,
+                        messages: [
+                          {
+                            role: "system",
+                            content: "You are a helpful assistant that writes clear GitHub PR descriptions in Markdown."
+                          },
+                          {
+                            role: "user",
+                            content: (
+                              "Write a clear PR description.\n\nInclude:\n- ## Summary\n- ## Changes\n- ## Testing\n\nCommits:\n"
+                              + $commits
+                              + "\n\nDiff:\n```diff\n"
+                              + $diff
+                              + "\n```"
+                            )
+                          }
+                        ]
+                      }'
+                    )")
+
+                  DESCRIPTION=$(echo "$RESPONSE" | jq -r '.choices[0].message.content')
+
+                  gh pr edit $PR_NUMBER --body "$DESCRIPTION"
