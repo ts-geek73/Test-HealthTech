@@ -59,7 +59,7 @@ jq -n --arg msg "$USER_MSG" '{
 
 # Call Gemini API
 RESPONSE=$(curl -s \
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" \
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=$GEMINI_API_KEY" \
   -H "Content-Type: application/json" \
   -d @/tmp/final_prompt.json)
 
