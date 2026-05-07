@@ -7,6 +7,8 @@ import DashboardPage from "./pages/dashboard";
 import NotFound from "./pages/NotFound";
 import SessionDetailPage from "./pages/session-detail";
 import ContentRedirectPage from "./pages/content/[id]";
+import PrDescriptionMakerPage from "./pages/pr-description-maker";
+import PrDescriptionSamplesPage from "./pages/pr-description-samples";
 import { DraftProvider } from "./providers/DraftProvider";
 
 function App() {
@@ -28,6 +30,8 @@ function App() {
             {/* new dynamic content route - creates a session in the background and then
                 navigates to the resulting session detail page */}
           <Route path="/content/:id" element={<ContentRedirectPage />} />
+            <Route path="/pr-description-maker" element={<PrDescriptionMakerPage />} />
+            <Route path="/pr-description-samples" element={<PrDescriptionSamplesPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </DraftProvider>
